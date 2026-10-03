@@ -156,7 +156,3 @@ Before a real deployment:
 - The spoken-viva mode (speech in, speech out) remains in the code alongside the MCQ flow.
 
 ---
-
-## Credits
-
-Built as an internship project — originally by [Habishake005](https://github.com/Habishake005/ai-viva-voce-system). The `hermes-agent/` directory is [Hermes Agent](https://github.com/NousResearch/Hermes-Agent) by Nous Research (MIT licence).
