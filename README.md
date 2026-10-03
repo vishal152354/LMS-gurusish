@@ -150,9 +150,4 @@ Before a real deployment:
 
 ---
 
-## Status
 
-- **Viva Prep (flashcards and practice MCQs)** — backend and home page are in place (`/prep.html`); the flashcard and practice-quiz pages are still in progress.
-- The spoken-viva mode (speech in, speech out) remains in the code alongside the MCQ flow.
-
----
