@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Soft ambient glows on the dark backdrop */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+body::before {
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+  top: -140px; left: -140px;
+}
+body::after {
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(255,87,34,0.05) 0%, transparent 70%);
+  bottom: -120px; right: -120px;
+}
+
+.page-wrap { position: relative; z-index: 1; width: 100%; max-width: 480px; }
+
+/* ── Branding ── */
+.brand {
+  text-align: center;
+  margin-bottom: 32px;
+  animation: fadeUp 0.5s ease both;
+}
+.brand-icon {
+  width: 76px; height: 76px; border-radius: 22px;
+  background: var(--surface-strong);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-strong);
+  margin: 0 auto 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-size: 30px; font-weight: 600; color: var(--text);
+  box-shadow: var(--glow);
+}
+.brand h1 {
+  font-family: var(--font-serif);
+  font-size: 2rem; font-weight: 600;
+  color: var(--text); letter-spacing: 0.2px;
+}
+.brand p { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+
+/* ── Role selector ── */
+.role-selector {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-bottom: 24px;
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+.role-btn {
+  background: var(--surface);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 20px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.role-btn:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.role-btn.active {
+  border-color: var(--border-strong);
+  background: var(--surface-strong);
+  box-shadow: var(--glow);
+}
+.role-label {
+  font-size: 15px; font-weight: 600; color: var(--text);
+  display: block;
+}
+.role-desc {
+  font-size: 12px; color: var(--text-secondary); margin-top: 4px;
+  display: block;
+}
+.role-btn.active .role-label { color: var(--text); }
+.role-check {
+  position: absolute; top: 10px; right: 10px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text); display: none;
+}
+.role-btn.active .role-check { display: block; }
+
+/* ── Form card ── */
+.form-card {
+  background: var(--surface);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--glow);
+  overflow: hidden;
+  animation: fadeUp 0.5s 0.15s ease both;
+}
+.card-top {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+}
+.card-body { padding: 28px 28px 24px; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Input styles ── */
+.input-group { margin-bottom: 16px; }
+.input-group label {
+  display: block; font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); margin-bottom: 6px;
+}
+.input-group input {
+  width: 100%; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-input);
+  font-family: inherit; font-size: 14px; color: var(--text);
+  background: rgba(0,0,0,0.25);
+  transition: var(--transition);
+}
+.input-group input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  background: rgba(0,0,0,0.35);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+.input-group input::placeholder { color: var(--text-muted); }
+
+/* PIN input */
+.pin-input-wrap {
+  display: flex; gap: 10px; justify-content: center; margin: 20px 0;
+}
+.pin-input-wrap input[type=password] {
+  width: 100%; padding: 14px 16px;
+  border: 1px solid var(--border); border-radius: var(--radius-input);
+  font-family: inherit; font-size: 20px; letter-spacing: 6px;
+  text-align: center; background: rgba(0,0,0,0.25); color: var(--text);
+  transition: var(--transition);
+}
+.pin-input-wrap input:focus {
+  outline: none; border-color: var(--border-strong);
+  background: rgba(0,0,0,0.35);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+
+/* ── Buttons ── */
+.btn-main {
+  width: 100%; padding: 14px;
+  border: none; border-radius: var(--radius-btn);
+  font-family: inherit; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-student {
+  background: var(--primary);
+  color: #16181D;
+}
+.btn-student:hover { transform: translateY(-1px); background: #fff; box-shadow: 0 8px 30px rgba(255,255,255,0.12); }
+.btn-student:active { transform: translateY(0); }
+.btn-professor {
+  background: var(--surface-strong);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+.btn-professor:hover { transform: translateY(-1px); background: rgba(255,255,255,0.14); }
+.btn-professor:active { transform: translateY(0); }
+
+/* ── Returning uploads ── */
+.returning-box {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input); padding: 14px 16px; margin-bottom: 16px;
+}
+.returning-box h4 { color: var(--text); font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.upload-mini-card {
+  background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px;
+  margin-bottom: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; transition: var(--transition);
+}
+.upload-mini-card:hover { border-color: var(--border-strong); transform: translateX(2px); }
+.upload-mini-card:last-child { margin-bottom: 0; }
+.upload-file-info { display: flex; align-items: center; gap: 9px; }
+.upload-file-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.upload-file-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.btn-sm {
+  padding: 6px 15px; border-radius: 20px; border: none;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+}
+.btn-sm-primary { background: var(--primary); color: #16181D; }
+.btn-sm-primary:hover { background: #fff; }
+.new-upload-link {
+  display: block; text-align: center; margin-top: 8px;
+  color: var(--text-secondary); font-size: 13px; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+}
+.new-upload-link:hover { color: var(--text); text-decoration: underline; }
+
+/* ── Error / professor header ── */
+.error-box {
+  background: var(--danger-light); border: 1px solid rgba(248,113,113,0.4);
+  color: var(--danger); border-radius: 8px;
+  padding: 10px 14px; font-size: 13px;
+  margin-bottom: 14px; display: none;
+}
+.prof-header { text-align: center; margin-bottom: 4px; }
+.prof-header h3 { font-family: var(--font-serif); font-size: 1.25rem; font-weight: 600; color: var(--text); }
+.prof-header p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+/* ── Footer ── */
+.footer {
+  text-align: center; margin-top: 20px;
+  font-size: 12px; color: var(--text-muted);
+  animation: fadeUp 0.5s 0.25s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- Branding -->
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <h1>Pariksha</h1>
+    <p>Intelligent oral examination system</p>
+  </div>
+
+  <!-- Role selector -->
+  <div class="role-selector">
+    <button class="role-btn active" id="roleStudent" onclick="switchRole('student')">
+      <div class="role-check"></div>
+      <span class="role-label">Student</span>
+      <span class="role-desc">Take your viva exam</span>
+    </button>
+    <button class="role-btn" id="roleProfessor" onclick="switchRole('professor')">
+      <div class="role-check"></div>
+      <span class="role-label">Professor</span>
+      <span class="role-desc">View student results</span>
+    </button>
+  </div>
+
+  <!-- Form card -->
+  <div class="form-card">
+    <div class="card-top" id="cardTop"></div>
+    <div class="card-body">
+
+      <!-- Student panel -->
+      <div class="panel active" id="studentPanel">
+        <div class="input-group">
+          <label for="rollNumber">Roll Number</label>
+          <input type="text" id="rollNumber" placeholder="e.g. CS2023001" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" placeholder="Enter your full name" autocomplete="off">
+        </div>
+
+        <div class="returning-box" id="returningBox" style="display:none;">
+          <h4>Welcome back — your previous content:</h4>
+          <div id="uploadsList"></div>
+          <a class="new-upload-link" onclick="goToUpload()">+ Upload new content</a>
+        </div>
+
+        <div class="error-box" id="studentError"></div>
+
+        <button class="btn-main btn-student" id="studentBtn" onclick="studentLogin()">
+          Enter
+        </button>
+      </div>
+
+      <!-- Professor panel -->
+      <div class="panel" id="professorPanel">
+        <div class="prof-header">
+          <h3>Professor Access</h3>
+          <p>Sign in with your professor credentials</p>
+        </div>
+
+        <div class="input-group" style="margin-top:16px;">
+          <label for="profUsername">Username</label>
+          <input type="text" id="profUsername" placeholder="admin" autocomplete="username"
+                 onkeydown="if(event.key==='Enter') document.getElementById('profPassword').focus()">
+        </div>
+        <div class="input-group">
+          <label for="profPassword">Password</label>
+          <input type="password" id="profPassword" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter') profLogin()">
+        </div>
+
+        <div class="error-box" id="profError"></div>
+
+        <button class="btn-main btn-professor" id="profBtn" onclick="profLogin()">
+          Access Dashboard
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="footer">Data stored locally &nbsp;·&nbsp; Pariksha v2.0</p>
+</div>
+
+<script>
+const API = '';
+let currentStudentId = null;
+
+// ── Role switching ────────────────────────────────────────────
+function switchRole(role) {
+  const cardTop = document.getElementById('cardTop');
+  if (role === 'student') {
+    document.getElementById('roleStudent').classList.add('active');
+    document.getElementById('roleProfessor').classList.remove('active');
+    document.getElementById('studentPanel').classList.add('active');
+    document.getElementById('professorPanel').classList.remove('active');
+    cardTop.style.background = 'linear-gradient(90deg, #1e40af, #2563eb)';
+    document.getElementById('rollNumber').focus();
+  } else {
+    document.getElementById('roleProfessor').classList.add('active');
+    document.getElementById('roleStudent').classList.remove('active');
+    document.getElementById('professorPanel').classList.add('active');
+    document.getElementById('studentPanel').classList.remove('active');
+    cardTop.style.background = 'linear-gradient(90deg, #5b21b6, #7c3aed)';
+    document.getElementById('profPin').focus();
+  }
+}
+
+// ── Student login ─────────────────────────────────────────────
+const rollInput = document.getElementById('rollNumber');
+const nameInput = document.getElementById('fullName');
+
+rollInput.addEventListener('blur', tryAutoLookup);
+nameInput.addEventListener('blur', tryAutoLookup);
+rollInput.addEventListener('keydown', e => { if (e.key === 'Enter') studentLogin(); });
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') studentLogin(); });
+
+async function tryAutoLookup() {
+  const roll = rollInput.value.trim().toUpperCase();
+  const name = nameInput.value.trim();
+  if (roll && name) {
+    try {
+      const res = await fetch(`${API}/student/join`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({roll_number: roll, name})
+      });
+      const data = await res.json();
+      if (res.ok && data.is_returning && data.uploads && data.uploads.length) {
+        currentStudentId = data.student_id;
+        renderUploads(data.uploads);
+        document.getElementById('returningBox').style.display = 'block';
+        document.getElementById('studentBtn').textContent = 'View My Content';
+      }
+    } catch(e) { /* backend might not be up yet */ }
+  }
+}
+
+async function studentLogin() {
+  const roll = rollInput.value.trim().toUpperCase();
+  const name = nameInput.value.trim();
+  if (!roll) { showStudentError('Please enter your roll number.'); return; }
+  if (!name) { showStudentError('Please enter your full name.'); return; }
+
+  const btn = document.getElementById('studentBtn');
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  document.getElementById('studentError').style.display = 'none';
+
+  try {
+    // Register / look up the student
+    const joinRes  = await fetch(`${API}/student/join`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({roll_number: roll, name})
+    });
+    const joinData = await joinRes.json();
+    if (!joinRes.ok) { showStudentError(joinData.detail || 'Error joining.'); return; }
+
+    sessionStorage.setItem('student_id',   joinData.student_id);
+    sessionStorage.setItem('student_name', name);
+    sessionStorage.setItem('roll_number',  roll);
+
+    // Go to slot selection page
+    btn.textContent = 'Loading your schedule…';
+    window.location.href =
+      `tests.html?roll=${encodeURIComponent(roll)}&name=${encodeURIComponent(name)}&student_id=${joinData.student_id}`;
+
+  } catch(err) {
+    showStudentError('Cannot connect to server. Is the backend running on port 7860?');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enter';
+  }
+}
+
+function renderUploads(uploads) {
+  const list = document.getElementById('uploadsList');
+  list.innerHTML = '';
+  uploads.forEach(u => {
+    const div = document.createElement('div');
+    div.className = 'upload-mini-card';
+    const status = u.viva_completed
+      ? `Viva done — ${u.total_marks} (${u.grade})`
+      : u.okf_ready ? 'Knowledge base ready' : 'Processing…';
+    const btnTxt = u.viva_completed ? 'View Result' : 'Take Viva';
+    div.innerHTML = `
+      <div class="upload-file-info">
+        <div>
+          <div class="upload-file-name">${esc(u.filename)}</div>
+          <div class="upload-file-meta">${status}</div>
+        </div>
+      </div>
+      <button class="btn-sm btn-sm-primary" onclick="selectUpload('${u.upload_id}','${!!u.viva_completed}')">
+        ${btnTxt}
+      </button>`;
+    list.appendChild(div);
+  });
+}
+
+function selectUpload(uploadId, isDone) {
+  if (!currentStudentId) return;
+  if (isDone === 'true' || isDone === true) {
+    window.location.href = `complete.html?student_id=${currentStudentId}&upload_id=${uploadId}`;
+  } else {
+    window.location.href = `viva.html?student_id=${currentStudentId}&upload_id=${uploadId}`;
+  }
+}
+
+function goToUpload() {
+  const sid = currentStudentId || sessionStorage.getItem('student_id');
+  if (sid) window.location.href = `upload.html?student_id=${sid}`;
+}
+
+function showStudentError(msg) {
+  const el = document.getElementById('studentError');
+  el.textContent = msg; el.style.display = 'block';
+  const btn = document.getElementById('studentBtn');
+  btn.disabled = false; btn.textContent = 'Continue';
+}
+
+// ── Professor login ───────────────────────────────────────────
+async function profLogin() {
+  const username = document.getElementById('profUsername').value.trim();
+  const password = document.getElementById('profPassword').value;
+  if (!username || !password) {
+    const el = document.getElementById('profError');
+    el.textContent = 'Please enter your username and password.';
+    el.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('profBtn');
+  btn.disabled = true;
+  btn.textContent = 'Verifying…';
+  document.getElementById('profError').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/professor/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      sessionStorage.setItem('prof_token', data.token);
+      window.location.href = 'professor.html?token=' + encodeURIComponent(data.token) + '&t=' + Date.now();
+    } else {
+      const el = document.getElementById('profError');
+      el.textContent = data.detail || 'Invalid username or password.';
+      el.style.display = 'block';
+      document.getElementById('profPassword').value = '';
+      document.getElementById('profPassword').focus();
+    }
+  } catch(e) {
+    const el = document.getElementById('profError');
+    el.textContent = 'Cannot reach server. Is the backend running on port 7860?';
+    el.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Access Dashboard';
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Initial focus ─────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('rollNumber').focus();
+});
+</script>
+</body>
+</html>

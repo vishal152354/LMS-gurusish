@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Student Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+body { background: linear-gradient(135deg,#F0F4FF 0%,#F8FAFC 100%); min-height:100vh; padding:28px 16px; }
+.dash-wrap { max-width:700px; margin:0 auto; }
+.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+.page-header h1 { font-size:1.6rem; font-weight:700; color:var(--text); }
+.page-header .sub { font-size:13px; color:var(--text-secondary); margin-top:2px; }
+.logout-btn { font-size:13px; color:var(--text-muted); cursor:pointer; background:none; border:none; text-decoration:underline; }
+
+/* Section headings */
+.section-title { font-size:1rem; font-weight:700; color:var(--text); margin:24px 0 12px; display:flex; align-items:center; gap:8px; }
+
+/* Booking card */
+.booking-card { border-radius:14px; padding:20px 22px; margin-bottom:8px; }
+.booking-card.active { background:#eff6ff; border:2px solid #2563eb; }
+.booking-card.none { background:var(--bg); border:2px dashed var(--border); color:var(--text-muted); text-align:center; padding:28px; }
+.booking-time { font-size:1.4rem; font-weight:700; color:#1e40af; }
+.booking-meta { font-size:13px; color:var(--text-secondary); margin-top:4px; }
+.join-btn { margin-top:14px; }
+
+/* Slot grid */
+.slots-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-top:10px; }
+.slot-chip {
+  border-radius:10px; padding:10px 12px; text-align:center;
+  font-size:13px; font-weight:600; cursor:pointer;
+  border:2px solid transparent; transition:.15s;
+}
+.slot-chip.available { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+.slot-chip.available:hover { background:#dcfce7; border-color:#4ade80; }
+.slot-chip.booked { background:#fef9c3; color:#92400e; border-color:#fde68a; cursor:default; }
+.slot-chip.in_progress,.slot-chip.completed { background:#f1f5f9; color:#64748b; border-color:#e2e8f0; cursor:default; }
+.slot-chip.mine { background:#eff6ff; color:#1e40af; border-color:#93c5fd; cursor:default; }
+.slot-chip .slot-time { font-size:14px; }
+.slot-chip .slot-label { font-size:11px; margin-top:2px; opacity:.7; }
+
+/* Event cards */
+.event-card { background:var(--bg); border-radius:12px; border:1px solid var(--border); margin-bottom:16px; overflow:hidden; }
+.event-header { padding:16px 18px; display:flex; align-items:flex-start; justify-content:space-between; cursor:pointer; }
+.event-header:hover { background:#f8fafc; }
+.event-title { font-weight:600; font-size:15px; }
+.event-meta { font-size:12px; color:var(--text-muted); margin-top:3px; }
+.event-badge { font-size:12px; font-weight:600; padding:3px 10px; border-radius:50px; white-space:nowrap; }
+.badge-open   { background:#f0fdf4; color:#166534; }
+.badge-booked { background:#eff6ff; color:#1e40af; }
+.badge-full   { background:#fef2f2; color:#991b1b; }
+.event-body { padding:0 18px 16px; display:none; }
+.event-body.open { display:block; }
+
+/* Results table */
+.results-table { width:100%; border-collapse:collapse; font-size:13px; }
+.results-table th { text-align:left; padding:8px 12px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); }
+.results-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+.results-table tr:last-child td { border:none; }
+.grade-pill { display:inline-block; padding:2px 10px; border-radius:50px; font-weight:700; font-size:12px; }
+.grade-A-plus,.grade-A { background:#ecfdf5; color:#065f46; }
+.grade-B { background:#eff6ff; color:#1e40af; }
+.grade-C { background:#fffbeb; color:#92400e; }
+.grade-D,.grade-F { background:#fef2f2; color:#991b1b; }
+.grade-Excellent,.grade-Good { background:#ecfdf5; color:#065f46; }
+.grade-Satisfactory { background:#fffbeb; color:#92400e; }
+.grade-Needs-improvement,.grade-Unsatisfactory { background:#fef2f2; color:#991b1b; }
+
+.empty-state { text-align:center; color:var(--text-muted); padding:32px; font-size:14px; }
+.spinner-sm { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Change-slot button */
+.btn-change-slot {
+  margin-top:12px; padding:7px 16px; border-radius:8px; font-size:13px; font-weight:600;
+  border:1.5px solid #f59e0b; background:#fffbeb; color:#92400e; cursor:pointer;
+  transition:.15s;
+}
+.btn-change-slot:hover { background:#fef3c7; }
+
+/* Cancel-booking confirm bar */
+#cancel-confirm-card {
+  margin-top:12px; padding:13px 16px;
+  background:#fef2f2; border:2px solid #fca5a5; border-radius:10px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+}
+#cancel-confirm-card .confirm-text { font-size:13px; color:#991b1b; font-weight:500; }
+#cancel-confirm-card .confirm-btns { display:flex; gap:8px; }
+.btn-cancel-no  { padding:6px 16px; border-radius:8px; border:1px solid #fca5a5; background:#fff; color:#991b1b; font-size:13px; font-weight:600; cursor:pointer; }
+.btn-cancel-yes { padding:6px 16px; border-radius:8px; border:none; background:#dc2626; color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+
+/* Booking Status States */
+.booking-status {
+  padding: 14px 16px; border-radius: 10px; font-size: 13.5px; line-height: 1.6; margin-top: 10px;
+}
+.booking-status.completed {
+  background: #f0fdf4; border: 1.5px solid #bbf7d0; color: #166534;
+}
+.booking-status.missed {
+  background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e;
+}
+.booking-status.active {
+  background: #eff6ff; border: 1.5px solid #bfdbfe; color: #1e40af;
+}
+.badge-completed { background: #dcfce7 !important; color: #15803d !important; }
+.badge-missed    { background: #fef3c7 !important; color: #b45309 !important; }
+
+/* Toast notifications */
+#toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+.toast {
+  padding:14px 18px; border-radius:10px; font-size:14px; font-weight:500;
+  box-shadow:0 4px 16px rgba(0,0,0,0.15); min-width:260px; max-width:360px;
+  animation:slideIn .25s ease;
+}
+.toast.success { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+.toast.error   { background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+.toast.info    { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+@keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+.slot-chip.booking  { background:#fffbeb; color:#92400e; border-color:#fde68a; cursor:wait; opacity:.7; }
+.slot-chip.selected { background:#dbeafe; color:#1e40af; border-color:#2563eb; cursor:default; }
+
+/* Missed booking card */
+.booking-card.missed { background:#fffbeb; border:2px solid #ca8a04; }
+.booking-card.missed .booking-time { color:#92400e; }
+.missed-label { display:inline-block; margin-top:10px; font-size:13px; font-weight:600; color:#92400e; background:#fef3c7; border:1px solid #fde68a; border-radius:6px; padding:4px 10px; }
+
+/* Inline booking confirmation */
+#booking-confirm-card {
+  margin-top:14px; padding:14px 16px;
+  background:#eff6ff; border:2px solid #2563eb; border-radius:10px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+}
+#booking-confirm-card .confirm-text { font-size:14px; color:#1e40af; font-weight:500; }
+#booking-confirm-card .confirm-btns { display:flex; gap:8px; }
+.btn-cancel-confirm {
+  padding:7px 18px; border-radius:8px; border:1px solid #93c5fd;
+  background:#fff; color:#1e40af; font-size:13px; font-weight:600; cursor:pointer;
+}
+.btn-confirm-book {
+  padding:7px 18px; border-radius:8px; border:none;
+  background:#2563eb; color:#fff; font-size:13px; font-weight:600; cursor:pointer;
+}
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="dash-wrap fade-up">
+
+  <div class="page-header">
+    <div>
+      <h1 id="welcomeHeading">Student Dashboard</h1>
+      <div class="sub" id="rollDisplay"></div>
+    </div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+
+  <!-- MY BOOKING -->
+  <div class="section-title">📅 My Upcoming Booking</div>
+  <div id="bookingSection">
+    <div class="booking-card none">
+      <span class="spinner-sm"></span> Loading bookings…
+    </div>
+  </div>
+
+  <!-- AVAILABLE EVENTS -->
+  <div class="section-title">🗓️ Available Events</div>
+  <div id="eventsSection">
+    <div class="empty-state"><span class="spinner-sm"></span> Loading events…</div>
+  </div>
+
+  <!-- PAST RESULTS -->
+  <div class="section-title">📊 Past Results</div>
+  <div id="resultsSection">
+    <div class="empty-state"><span class="spinner-sm"></span> Loading results…</div>
+  </div>
+
+</div>
+
+<script>
+var API = window.API || '';
+const params    = new URLSearchParams(location.search);
+const studentId = params.get('student_id') || sessionStorage.getItem('student_id');
+const roll      = params.get('roll')       || sessionStorage.getItem('roll');
+const name      = params.get('name')       || sessionStorage.getItem('student_name') || 'Student';
+
+if (!studentId) {
+  location.href = '/';
+}
+
+sessionStorage.setItem('student_id', studentId);
+document.getElementById('welcomeHeading').textContent = `Welcome, ${name}!`;
+document.getElementById('rollDisplay').textContent    = `Roll No: ${roll || studentId}`;
+
+// ── Logout ────────────────────────────────────────────────────
+function logout() {
+  sessionStorage.clear();
+  location.href = '/';
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function isMissedSlot(eventDate, slotStart, slotEnd) {
+  const startDt = new Date(`${eventDate}T${slotStart}:00`);
+  const endDt   = new Date(`${eventDate}T${slotEnd}:00`);
+  if (endDt <= startDt) endDt.setDate(endDt.getDate() + 1); // cross-midnight
+  endDt.setMinutes(endDt.getMinutes() + 2);
+  return new Date() > endDt;
+}
+
+function isJoinableNow(eventDate, slotStart, slotEnd) {
+  const startDt = new Date(`${eventDate}T${slotStart}:00`);
+  const endDt   = new Date(`${eventDate}T${slotEnd}:00`);
+  if (endDt <= startDt) endDt.setDate(endDt.getDate() + 1); // cross-midnight
+  startDt.setMinutes(startDt.getMinutes() - 2);
+  endDt.setMinutes(endDt.getMinutes() + 2);
+  const now = new Date();
+  return now >= startDt && now <= endDt;
+}
+
+// ── Load upcoming bookings ────────────────────────────────────
+async function loadBookings() {
+  const res  = await fetch(`${API}/student/my-booking?student_id=${studentId}`);
+  const data = await res.json();
+  const sec  = document.getElementById('bookingSection');
+  sec.innerHTML = '';
+
+  const active = data.filter(b => b.status !== 'completed');
+  if (!active.length) {
+    sec.innerHTML = '<div class="booking-card none">No upcoming bookings. Book a slot below.</div>';
+    return;
+  }
+
+  active.forEach(b => {
+    const missed    = isMissedSlot(b.event_date, b.slot_start, b.slot_end) && (b.status === 'booked' || b.status === 'in_progress');
+    const canJoin   = !missed && isJoinableNow(b.event_date, b.slot_start, b.slot_end) && (b.status === 'booked' || b.status === 'in_progress');
+    const canChange = !missed && !canJoin && b.status === 'booked' && canChangeSlot(b.event_date, b.slot_start);
+    const card = document.createElement('div');
+
+    if (missed) {
+      card.className = 'booking-card missed card';
+      card.innerHTML = `
+        <div class="booking-time">${fmtTime(b.slot_start)} – ${fmtTime(b.slot_end)}</div>
+        <div class="booking-meta">${b.event_title} &nbsp;·&nbsp; ${fmtDate(b.event_date)}</div>
+        <span class="missed-label">⚠️ Slot missed — this time window has passed</span>
+      `;
+    } else {
+      card.className = 'booking-card active card';
+      card.innerHTML = `
+        <div class="booking-time">${fmtTime(b.slot_start)} – ${fmtTime(b.slot_end)}</div>
+        <div class="booking-meta">${b.event_title} &nbsp;·&nbsp; ${fmtDate(b.event_date)}</div>
+        ${canJoin
+          ? `<button class="btn btn-primary join-btn" onclick="joinViva('${b.upload_id}','${b.slot_id}')">${b.status === 'in_progress' ? 'Resume Viva' : 'Join Viva Now'}</button>`
+          : `<div style="margin-top:12px;font-size:13px;color:#64748b">
+               The "Join" button will activate 2 minutes before your slot.<br>
+               <strong>Your slot:</strong> ${fmtTime(b.slot_start)} – ${fmtTime(b.slot_end)} on ${fmtDate(b.event_date)}
+             </div>`
+        }
+        ${canChange
+          ? `<button class="btn-change-slot" onclick="showCancelConfirm('${b.event_id}','${fmtTime(b.slot_start)} – ${fmtTime(b.slot_end)}', this.closest('.booking-card'))">🔄 Change Slot</button>`
+          : (!canJoin && !missed ? `<div style="margin-top:6px;font-size:12px;color:#94a3b8;">Slot changes are locked 30 minutes before start.</div>` : '')
+        }
+      `;
+    }
+    sec.appendChild(card);
+  });
+}
+
+// ── Load events ───────────────────────────────────────────────
+async function loadEvents() {
+  const res  = await fetch(`${API}/student/events?student_id=${studentId}`);
+  const data = await res.json();
+  const sec  = document.getElementById('eventsSection');
+  sec.innerHTML = '';
+
+  if (!data.length) {
+    sec.innerHTML = '<div class="empty-state">No events available at the moment.</div>';
+    return;
+  }
+
+  data.forEach(ev => {
+    const hasBooking  = ev.my_booking !== null;
+    const isCompleted = hasBooking && ev.my_booking.status === 'completed';
+    const isMissed    = hasBooking && !isCompleted && isMissedSlot(ev.event_date, ev.my_booking.slot_start, ev.my_booking.slot_end);
+    const isActive    = hasBooking && !isCompleted && !isMissed;
+
+    const isFull      = ev.available_slots === 0 && !hasBooking;
+    const badgeClass  = isCompleted ? 'badge-completed' : isMissed ? 'badge-missed' : isActive ? 'badge-booked' : isFull ? 'badge-full' : 'badge-open';
+    const badgeLabel  = isCompleted ? 'Completed' : isMissed ? 'Missed' : isActive ? 'Booked' : isFull ? 'Full' : `${ev.available_slots} slots open`;
+
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    
+    let bodyContent = '';
+    if (isCompleted) {
+      bodyContent = `
+        <div class="booking-status completed">
+          You have completed the viva. <br>
+          <strong>Result:</strong> ${ev.my_booking.total_marks}/30 (Grade: ${ev.my_booking.grade}) <br>
+          <a href="/complete?student_id=${studentId}&upload_id=${ev.my_booking.upload_id}&session_id=${ev.my_booking.session_id}" class="btn btn-secondary btn-sm" style="margin-top:10px;display:inline-block;padding:5px 12px;font-size:12px;border:1px solid #bbf7d0;background:#fff;border-radius:6px;color:#166534;text-decoration:none;font-weight:600;">View Detailed Feedback</a>
+        </div>
+      `;
+    } else if (isMissed) {
+      bodyContent = `
+        <div class="booking-status missed">
+          ⚠️ You had missed the viva — this slot time has passed.
+        </div>
+      `;
+    } else if (isActive) {
+      const canJoin = isJoinableNow(ev.event_date, ev.my_booking.slot_start, ev.my_booking.slot_end);
+      bodyContent = `
+        <div class="booking-status active">
+          <strong>Your booked slot:</strong> ${fmtTime(ev.my_booking.slot_start)} – ${fmtTime(ev.my_booking.slot_end)} <br>
+          ${canJoin
+            ? `<button class="btn btn-primary join-btn" onclick="joinViva('${ev.my_booking.upload_id}','${ev.my_booking.slot_id}')" style="margin-top:10px;">Join Viva Now</button>`
+            : `<div style="margin-top:6px;font-size:12px;color:#64748b;">The join button will activate 2 minutes before your slot.</div>`
+          }
+        </div>
+      `;
+    } else {
+      bodyContent = `
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">
+          Choose a 15-minute slot:
+        </div>
+        <div class="slots-grid" id="slots-${ev.event_id}">
+          <div style="font-size:13px;color:var(--text-muted)"><span class="spinner-sm"></span>Loading slots…</div>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="event-header" onclick="${hasBooking ? '' : 'toggleEvent(this)'}">
+        <div>
+          <div class="event-title">${ev.title}</div>
+          <div class="event-meta">${fmtDate(ev.event_date)} &nbsp;·&nbsp; ${fmtTime(ev.start_time)}–${fmtTime(ev.end_time)} &nbsp;·&nbsp; ${ev.content_name}</div>
+        </div>
+        <span class="event-badge ${badgeClass}">${badgeLabel}</span>
+      </div>
+      <div class="event-body ${hasBooking ? 'open' : ''}" id="body-${ev.event_id}">
+        ${bodyContent}
+      </div>
+    `;
+    card.dataset.eventId = ev.event_id;
+    card.dataset.myBooking = ev.my_booking ? JSON.stringify(ev.my_booking) : '';
+    sec.appendChild(card);
+  });
+}
+
+function toggleEvent(headerEl) {
+  const body    = headerEl.nextElementSibling;
+  const eventId = headerEl.closest('.event-card').dataset.eventId;
+  const isOpen  = body.classList.toggle('open');
+  if (isOpen) {
+    loadSlots(eventId);
+  }
+}
+
+async function loadSlots(eventId) {
+  const res   = await fetch(`${API}/student/events/${eventId}/slots?student_id=${studentId}`);
+  const slots = await res.json();
+  const grid  = document.getElementById(`slots-${eventId}`);
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  slots.forEach(s => {
+    const chip = document.createElement('div');
+    let cls = s.status;
+    let label = s.status.charAt(0).toUpperCase() + s.status.slice(1);
+    let clickable = false;
+
+    if (s.is_mine) {
+      cls = 'mine';
+      label = 'Your slot';
+    } else if (s.status === 'available') {
+      label = 'Available';
+      clickable = true;
+    } else if (s.status === 'booked') {
+      label = 'Taken';
+    } else if (s.status === 'completed') {
+      label = 'Done';
+    }
+
+    chip.className = `slot-chip ${cls}`;
+    chip.innerHTML = `<div class="slot-time">${fmtTime(s.slot_start)}</div><div class="slot-label">${label}</div>`;
+    if (clickable) {
+      chip.onclick = () => showBookingConfirm(eventId, s.slot_id, chip, s.slot_start, s.slot_end);
+    }
+    grid.appendChild(chip);
+  });
+
+  if (!slots.length) {
+    grid.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">No slots found.</div>';
+  }
+}
+
+// ── Slot change / cancellation ───────────────────────────────
+function canChangeSlot(eventDate, slotStart) {
+  let startDt = new Date(`${eventDate}T${slotStart}:00`);
+  const now   = new Date();
+  // cross-midnight: if start already passed today treat as tomorrow
+  if (startDt < now) startDt.setDate(startDt.getDate() + 1);
+  return (startDt - now) / 60000 > 30;   // must be > 30 min away
+}
+
+let _cancelPending = null;  // { eventId, bookingCardEl }
+
+function showCancelConfirm(eventId, slotLabel, cardEl) {
+  // Remove any existing confirm bar
+  const existing = document.getElementById('cancel-confirm-card');
+  if (existing) existing.remove();
+
+  _cancelPending = { eventId, cardEl };
+
+  const bar = document.createElement('div');
+  bar.id = 'cancel-confirm-card';
+  bar.innerHTML = `
+    <span class="confirm-text">⚠️ Cancel your <strong>${slotLabel}</strong> slot and choose another?</span>
+    <div class="confirm-btns">
+      <button class="btn-cancel-no"  onclick="dismissCancelConfirm()">Keep It</button>
+      <button class="btn-cancel-yes" onclick="doCancel()">Yes, Cancel</button>
+    </div>
+  `;
+  cardEl.appendChild(bar);
+}
+
+function dismissCancelConfirm() {
+  const bar = document.getElementById('cancel-confirm-card');
+  if (bar) bar.remove();
+  _cancelPending = null;
+}
+
+async function doCancel() {
+  if (!_cancelPending) return;
+  const { eventId } = _cancelPending;
+  const bar = document.getElementById('cancel-confirm-card');
+  if (bar) bar.remove();
+  _cancelPending = null;
+
+  try {
+    const res = await fetch(`${API}/student/events/${eventId}/cancel-booking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: studentId }),
+    });
+    let data;
+    try { data = await res.json(); } catch { data = {}; }
+
+    if (!res.ok) {
+      const msg = typeof data.detail === 'string' ? data.detail : 'Could not cancel booking.';
+      toast('❌ ' + msg, 'error', 6000);
+      return;
+    }
+    toast('✅ Booking cancelled. You can now pick a new slot below.', 'success', 5000);
+    loadBookings();
+    loadEvents();
+  } catch (err) {
+    toast('❌ Cannot reach server.', 'error', 5000);
+  }
+}
+
+// ── Inline booking confirmation ───────────────────────────────
+let _pendingBooking = null;
+
+function showBookingConfirm(eventId, slotId, chipEl, slotStart, slotEnd) {
+  cancelBookingConfirm(); // clear any existing confirmation first
+
+  // Style chip as "selected"
+  chipEl.className = 'slot-chip selected';
+  chipEl.querySelector('.slot-label').textContent = 'Selected';
+  chipEl.onclick = null;
+
+  // Insert confirmation bar inside the event-body, after the slots grid
+  const grid = chipEl.closest('.slots-grid');
+  const body = grid.parentElement;
+
+  const bar = document.createElement('div');
+  bar.id = 'booking-confirm-card';
+  bar.innerHTML = `
+    <span class="confirm-text">📅 Book <strong>${fmtTime(slotStart)} – ${fmtTime(slotEnd)}</strong>?</span>
+    <div class="confirm-btns">
+      <button class="btn-cancel-confirm" onclick="cancelBookingConfirm()">Cancel</button>
+      <button class="btn-confirm-book"   onclick="confirmBooking()">Confirm Booking</button>
+    </div>
+  `;
+  body.appendChild(bar);
+
+  _pendingBooking = { eventId, slotId, chipEl };
+}
+
+function cancelBookingConfirm() {
+  const bar = document.getElementById('booking-confirm-card');
+  if (bar) bar.remove();
+  if (_pendingBooking) {
+    loadSlots(_pendingBooking.eventId); // restore chip state
+    _pendingBooking = null;
+  }
+}
+
+async function confirmBooking() {
+  if (!_pendingBooking) return;
+  const { eventId, slotId, chipEl } = _pendingBooking;
+  const bar = document.getElementById('booking-confirm-card');
+  if (bar) bar.remove();
+  _pendingBooking = null;
+  await bookSlot(eventId, slotId, chipEl);
+}
+
+function toast(msg, type = 'info', durationMs = 4000) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), durationMs);
+}
+
+async function bookSlot(eventId, slotId, chipEl) {
+  // Visual feedback: mark chip as "booking in progress"
+  if (chipEl) {
+    chipEl.className = 'slot-chip booking';
+    chipEl.querySelector('.slot-label').textContent = 'Booking…';
+    chipEl.onclick = null;
+  }
+
+  try {
+    const res = await fetch(`${API}/student/events/${eventId}/book`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ student_id: studentId, slot_id: slotId }),
+    });
+
+    let data;
+    try { data = await res.json(); } catch { data = {}; }
+
+    if (!res.ok) {
+      const msg = typeof data.detail === 'string'
+        ? data.detail
+        : Array.isArray(data.detail)
+          ? data.detail.map(e => e.msg).join(', ')
+          : 'Booking failed. Please try again.';
+      toast('❌ ' + msg, 'error', 6000);
+      // Reload slots to restore chip state
+      loadSlots(eventId);
+      return;
+    }
+
+    toast(`✅ Slot booked: ${fmtTime(data.slot_start)}–${fmtTime(data.slot_end)} on ${fmtDate(data.event_date)}`, 'success', 6000);
+    loadBookings();
+    loadEvents();
+    // Scroll to booking section
+    document.getElementById('bookingSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    console.error('Booking fetch error:', err);
+    toast('❌ Cannot reach server. Is the backend running?', 'error', 6000);
+    if (chipEl) loadSlots(eventId);
+  }
+}
+
+function joinViva(uploadId, slotId) {
+  sessionStorage.setItem('upload_id', uploadId);
+  sessionStorage.setItem('slot_id',   slotId);
+  location.href = `/viva?student_id=${studentId}&upload_id=${uploadId}&slot_id=${slotId}`;
+}
+
+// ── Load past results ─────────────────────────────────────────
+async function loadResults() {
+  const sec = document.getElementById('resultsSection');
+  try {
+    const res  = await fetch(`${API}/student/my-results?student_id=${studentId}`);
+    const data = await res.json();
+
+    if (!data.length) {
+      sec.innerHTML = '<div class="empty-state">No completed vivas yet.</div>';
+      return;
+    }
+
+    const tbl = document.createElement('table');
+    tbl.className = 'results-table';
+    tbl.innerHTML = `<thead><tr>
+      <th>Viva</th><th>Date</th><th>Score</th><th>Grade</th><th></th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    data.forEach(r => {
+      const tr = document.createElement('tr');
+      const gradeClass = (r.grade || '').replace(/\s+/g, '-').replace('+', '-plus');
+      const label = r.is_v2
+        ? `${r.event_title || 'Event'} &nbsp;<span style="font-size:11px;color:#94a3b8;">${fmtTime(r.slot_start)}–${fmtTime(r.slot_end)}</span>`
+        : (r.filename || '—');
+      const dateStr = r.is_v2 ? fmtDate(r.event_date) : fmtDate(r.completed_at);
+      tr.innerHTML = `
+        <td>${label}</td>
+        <td>${dateStr}</td>
+        <td>${r.total_marks !== null && r.total_marks !== undefined ? r.total_marks + '/30' : '—'}</td>
+        <td>${r.grade ? `<span class="grade-pill grade-${gradeClass}">${r.grade}</span>` : '—'}</td>
+        <td><a href="/complete?student_id=${studentId}&upload_id=${r.upload_id}&session_id=${r.session_id}" style="font-size:13px;color:var(--primary);">View</a></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    sec.innerHTML = '';
+    sec.appendChild(tbl);
+  } catch(e) {
+    sec.innerHTML = '<div class="empty-state">Could not load results.</div>';
+  }
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  try {
+    return new Date(d).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+  } catch(e) { return d; }
+}
+
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const hour  = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+loadBookings();
+loadEvents();
+loadResults();
+
+// Refresh bookings every 60s so join button activates automatically
+setInterval(loadBookings, 60000);
+</script>
+</body>
+</html>

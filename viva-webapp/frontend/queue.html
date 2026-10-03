@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waiting in Queue — Pariksha</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary: #2563eb; --primary-dark: #1d4ed8; --primary-light: #eff6ff;
+  --success: #16a34a; --warn: #d97706; --border: #e2e8f0;
+  --bg: #f1f5f9; --surface: #ffffff; --text: #0f172a;
+  --text-2: #475569; --text-3: #94a3b8;
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.05);
+  --radius: 14px;
+}
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg); min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px 16px;
+}
+body::before {
+  content: ''; position: fixed;
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%);
+  top: -120px; left: -120px; pointer-events: none;
+}
+.wrap { width: 100%; max-width: 480px; position: relative; z-index: 1; }
+
+.brand { text-align: center; margin-bottom: 28px; animation: fadeUp 0.5s ease both; }
+.brand-icon {
+  width: 68px; height: 68px; border-radius: 20px;
+  background: linear-gradient(135deg, #1e40af, #2563eb, #3b82f6);
+  margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 8px 24px rgba(37,99,235,0.35);
+}
+.brand h1 { font-size: 1.5rem; font-weight: 800; color: var(--text); }
+.brand p  { color: var(--text-3); font-size: 14px; margin-top: 4px; }
+
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+.card-top { height: 4px; background: linear-gradient(90deg, #d97706, #f59e0b); }
+.card-body { padding: 28px; }
+
+.queue-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+}
+.queue-icon { font-size: 36px; }
+.queue-header h2 { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+.queue-header p  { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+.position-badge {
+  text-align: center; margin: 0 0 24px;
+  padding: 20px; border-radius: 12px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #fbbf24;
+}
+.position-number {
+  font-size: 3rem; font-weight: 800;
+  color: #92400e; line-height: 1;
+}
+.position-label { font-size: 14px; color: #78350f; margin-top: 4px; font-weight: 600; }
+
+.stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.stat-box {
+  background: var(--bg); border-radius: 10px; padding: 14px;
+  text-align: center;
+}
+.stat-value { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
+.stat-label { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+.slot-bar-wrap { margin-bottom: 20px; }
+.slot-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 8px;
+}
+.slot-bar-track {
+  height: 12px; background: #e2e8f0; border-radius: 99px; overflow: hidden;
+}
+.slot-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+.notice {
+  background: var(--primary-light); border: 1px solid rgba(37,99,235,0.2);
+  border-radius: 10px; padding: 14px 16px;
+  font-size: 13px; color: #1e3a8a; line-height: 1.6;
+  margin-bottom: 20px;
+}
+.notice strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+.pulse-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); margin-right: 6px;
+  animation: pulse 1.5s ease infinite;
+}
+.status-line { font-size: 13px; color: var(--text-2); display: flex; align-items: center; }
+
+.ready-banner {
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  border: 1px solid #86efac; border-radius: 12px;
+  padding: 20px; text-align: center; display: none;
+}
+.ready-banner h3 { font-size: 1.1rem; font-weight: 700; color: #14532d; }
+.ready-banner p  { font-size: 13px; color: #166534; margin-top: 4px; }
+
+@keyframes fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse   { 0%,100%{ transform:scale(1); opacity:1; } 50%{ transform:scale(1.4); opacity:0.6; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-icon">🎓</div>
+    <h1>Pariksha</h1>
+    <p>Intelligent oral examination system</p>
+  </div>
+
+  <div class="card">
+    <div class="card-top"></div>
+    <div class="card-body">
+
+      <div class="queue-header">
+        <div class="queue-icon">⏳</div>
+        <div>
+          <h2>You are in the queue</h2>
+          <p id="studentNameLine">Please wait — a slot will open shortly.</p>
+        </div>
+      </div>
+
+      <!-- Position badge -->
+      <div class="position-badge" id="positionBadge">
+        <div class="position-number" id="positionNum">—</div>
+        <div class="position-label">Your queue position</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-value" id="aheadCount">—</div>
+          <div class="stat-label">Students ahead</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="waitEst">—</div>
+          <div class="stat-label">Est. wait (min)</div>
+        </div>
+      </div>
+
+      <!-- Slot bar -->
+      <div class="slot-bar-wrap">
+        <div class="slot-bar-label">
+          <span>Slots in use</span>
+          <span id="slotText">— / 10</span>
+        </div>
+        <div class="slot-bar-track">
+          <div class="slot-bar-fill" id="slotFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Notice -->
+      <div class="notice">
+        <strong>Stay on this page</strong>
+        You will be automatically redirected when your slot opens.
+        Polling every 15 seconds — do not close or navigate away.
+      </div>
+
+      <!-- Live pulse -->
+      <div class="status-line">
+        <span class="pulse-dot"></span>
+        <span id="statusText">Checking queue status…</span>
+      </div>
+
+      <!-- Ready banner (hidden until slot opens) -->
+      <div class="ready-banner" id="readyBanner">
+        <h3>Your examiner is ready! 🎉</h3>
+        <p>Starting your viva now…</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+const params = new URLSearchParams(location.search);
+const roll       = params.get('roll')        || '';
+const name       = params.get('name')        || '';
+const initPos    = parseInt(params.get('pos') || '1', 10);
+const initAhead  = parseInt(params.get('ahead') || '0', 10);
+const initWait   = parseInt(params.get('wait') || '15', 10);
+const initActive = parseInt(params.get('active') || '0', 10);
+
+document.getElementById('studentNameLine').textContent =
+  name ? `Hi ${name} — your examiner will be with you shortly.` : 'Please wait.';
+
+function updateUI(pos, ahead, active, wait) {
+  document.getElementById('positionNum').textContent  = pos;
+  document.getElementById('aheadCount').textContent   = ahead;
+  document.getElementById('waitEst').textContent      = wait;
+  document.getElementById('slotText').textContent     = `${active} / 10`;
+  const pct = Math.min(100, Math.round(active / 10 * 100));
+  document.getElementById('slotFill').style.width     = pct + '%';
+  document.getElementById('statusText').textContent   =
+    `Position ${pos} · Last updated ${new Date().toLocaleTimeString()}`;
+}
+
+updateUI(initPos, initAhead, initActive, initWait);
+
+async function poll() {
+  if (!roll) return;
+  try {
+    const res  = await fetch(`${API}/orchestrator/queue/${encodeURIComponent(roll)}`);
+    const data = await res.json();
+
+    if (data.status === 'ready' || data.status === 'active') {
+      // Slot opened — navigate straight to viva
+      document.getElementById('readyBanner').style.display = 'block';
+      document.getElementById('statusText').textContent = 'Redirecting to your viva…';
+
+      if (data.status === 'active' && data.session_id) {
+        // Already has a session_id (resumed active session)
+        setTimeout(() => {
+          window.location.href =
+            `viva.html?session_id=${data.session_id}` +
+            `&student_id=${data.student_id || ''}&name=${encodeURIComponent(name)}`;
+        }, 1500);
+      } else if (data.status === 'ready') {
+        // Fresh spawn — need to start viva
+        const sid   = data.student_id || '';
+        const uid   = data.upload_id  || '';
+        const eid   = data.event_id   || '';
+        const agent = data.sub_agent_id || '';
+        setTimeout(() => {
+          window.location.href =
+            `viva.html?student_id=${sid}&upload_id=${uid}` +
+            `&event_id=${eid}&sub_agent_id=${agent}&name=${encodeURIComponent(name)}`;
+        }, 1500);
+      }
+      return;
+    }
+
+    if (data.status === 'waiting') {
+      const pos    = data.queue_position   || 1;
+      const ahead  = data.students_ahead   || 0;
+      const active = data.active_count     || 0;
+      const wait   = pos * 15;
+      updateUI(pos, ahead, active, wait);
+    }
+  } catch (e) {
+    document.getElementById('statusText').textContent = 'Reconnecting…';
+  }
+}
+
+// Poll every 15 seconds
+setInterval(poll, 15000);
+// First poll after 3 s so the page has time to render
+setTimeout(poll, 3000);
+</script>
+</body>
+</html>

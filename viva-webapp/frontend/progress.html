@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Building Knowledge Base</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=2">
+<style>
+body {
+  background: linear-gradient(135deg, #F0F4FF 0%, #F8FAFC 100%);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 24px;
+}
+.progress-wrap { max-width: 520px; width: 100%; }
+.file-badge {
+  text-align: center; margin-bottom: 24px;
+  font-size: 14px; color: var(--text-secondary);
+}
+.file-badge strong { color: var(--text-primary); }
+.steps-card .card-body { padding: 28px 24px; }
+.step-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.step-row:last-child { border-bottom: none; }
+.step-icon { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.step-text { flex: 1; }
+.step-name { font-weight: 500; font-size: 14px; }
+.step-status { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.check-icon { color: var(--success); font-size: 18px; }
+.overall-wrap { margin-top: 20px; }
+.overall-label {
+  display: flex; justify-content: space-between;
+  font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;
+}
+.pct-text { font-weight: 600; color: var(--primary); }
+.time-hint { text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 12px; }
+.fact-box {
+  margin-top: 20px; padding: 14px 16px;
+  background: var(--primary-light); border-radius: 8px;
+  font-size: 13px; color: #1e40af; line-height: 1.5;
+}
+.ready-wrap { text-align: center; display: none; padding: 24px 0 8px; }
+.ready-icon { font-size: 56px; margin-bottom: 12px; }
+.ready-title { font-size: 1.3rem; font-weight: 700; color: var(--success); margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="progress-wrap fade-up">
+  <div class="file-badge">Processing: <strong id="fileNameLabel">your document</strong></div>
+
+  <div class="card steps-card">
+    <div class="card-body">
+      <h3 style="margin-bottom:16px;">Building Knowledge Base</h3>
+
+      <div id="stepsContainer">
+        <div class="step-row" id="step-1">
+          <div class="step-icon" id="sicon-1"><div class="spinner"></div></div>
+          <div class="step-text">
+            <div class="step-name">Reading your content</div>
+            <div class="step-status" id="ss-1">Waiting…</div>
+          </div>
+        </div>
+        <div class="step-row" id="step-2">
+          <div class="step-icon" id="sicon-2">⏳</div>
+          <div class="step-text">
+            <div class="step-name">Identifying key concepts</div>
+            <div class="step-status" id="ss-2">Pending</div>
+          </div>
+        </div>
+        <div class="step-row" id="step-3">
+          <div class="step-icon" id="sicon-3">⏳</div>
+          <div class="step-text">
+            <div class="step-name">Building OKF knowledge bundle</div>
+            <div class="step-status" id="ss-3">Pending</div>
+          </div>
+        </div>
+        <div class="step-row" id="step-4">
+          <div class="step-icon" id="sicon-4">⏳</div>
+          <div class="step-text">
+            <div class="step-name">Building knowledge graph</div>
+            <div class="step-status" id="ss-4">Pending</div>
+          </div>
+        </div>
+        <div class="step-row" id="step-5">
+          <div class="step-icon" id="sicon-5">⏳</div>
+          <div class="step-text">
+            <div class="step-name">Preparing viva questions</div>
+            <div class="step-status" id="ss-5">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="overall-wrap">
+        <div class="overall-label">
+          <span id="progressMsg">Building…</span>
+          <span class="pct-text" id="pctText">0%</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <p class="time-hint">⏱ This usually takes 1–3 minutes</p>
+
+      <div class="fact-box" id="factBox">
+        💡 <span id="factText">Did you know? The OKF (Open Knowledge Format) organises concepts into a graph that AI can traverse intelligently during your examination.</span>
+      </div>
+
+      <div class="ready-wrap" id="readyWrap">
+        <div class="ready-icon">✅</div>
+        <div class="ready-title">Your knowledge base is ready!</div>
+        <button class="btn btn-success btn-lg" onclick="startViva()">Start Viva →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/progress.js?v=2"></script>
+</body>
+</html>

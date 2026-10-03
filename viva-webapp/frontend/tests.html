@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — My Tests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+body { margin: 0; min-height: 100vh; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 32px; background: var(--surface); backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.topbar .brand { font-family: var(--font-serif); font-weight: 600; font-size: 20px; color: var(--text); letter-spacing: .3px; }
+.topbar .who { font-size: 13px; color: var(--text-secondary); }
+.topbar .who strong { color: var(--text); font-weight: 600; }
+.logout { font-size: 13px; color: var(--text-muted); cursor: pointer; background: none; border: none; transition: color .15s; }
+.logout:hover { color: var(--text); }
+
+.wrap { max-width: 860px; margin: 44px auto; padding: 0 24px; }
+.page-title { font-family: var(--font-serif); font-size: 32px; font-weight: 600; margin: 0 0 6px; color: var(--text); }
+.page-sub { color: var(--text-secondary); font-size: 14px; margin: 0 0 30px; }
+
+.card {
+  background: var(--surface); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 22px 24px; margin-bottom: 16px; box-shadow: var(--glow);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  transition: border-color .2s, transform .1s;
+}
+.card:hover { border-color: var(--border-strong); }
+.card .info { min-width: 0; }
+.card .t-title { font-weight: 600; font-size: 17px; color: var(--text); }
+.card .t-file { font-size: 13px; color: var(--text-muted); margin-top: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 460px; }
+.card .t-meta { font-size: 12px; margin-top: 8px; color: var(--text-secondary); }
+
+.badge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12px; font-weight: 600; letter-spacing: .3px; }
+.badge.done { background: var(--success-light); color: var(--success); }
+.badge.avail { background: rgba(255,255,255,.10); color: var(--text); }
+.badge.pending { background: rgba(255,255,255,.06); color: var(--text-muted); }
+
+.btn-start {
+  flex: 0 0 auto; padding: 12px 26px; border-radius: var(--radius-btn); border: none;
+  background: var(--primary); color: #16181D; font-weight: 600; font-size: 14px; cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.btn-start:hover { background: #fff; transform: translateY(-1px); }
+.btn-start:disabled { background: rgba(255,255,255,.08); color: var(--text-muted); cursor: default; transform: none; }
+
+.empty { text-align: center; color: var(--text-muted); padding: 70px 20px; font-size: 15px; line-height: 1.8; }
+.loading { text-align: center; color: var(--text-secondary); padding: 44px; }
+.score-pill { font-weight: 700; color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Pariksha</div>
+    <div style="display:flex;align-items:center;gap:22px;">
+      <div class="who">Signed in as <strong id="whoName">—</strong> <span id="whoRoll"></span></div>
+      <button class="logout" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1 class="page-title">My Tests</h1>
+    <p class="page-sub">Tests assigned to you. Each test can be attempted <strong>once</strong>.</p>
+    <div id="list"><div class="loading">Loading your tests…</div></div>
+  </div>
+
+<script>
+const API = window.VIVA_API || '';
+const params = new URLSearchParams(location.search);
+const roll   = params.get('roll')       || sessionStorage.getItem('roll_number') || '';
+const name   = params.get('name')       || sessionStorage.getItem('student_name') || '';
+const sid    = params.get('student_id') || sessionStorage.getItem('student_id') || roll;
+
+if (!roll) location.href = 'index.html';
+
+sessionStorage.setItem('student_id', sid);
+sessionStorage.setItem('student_name', name);
+sessionStorage.setItem('roll_number', roll);
+
+document.getElementById('whoName').textContent = name || roll;
+document.getElementById('whoRoll').textContent = roll ? `· ${roll}` : '';
+
+function logout() {
+  sessionStorage.clear();
+  location.href = 'index.html';
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function startTest(t) {
+  sessionStorage.setItem('filename', t.filename);
+  const qp = new URLSearchParams({
+    student_id: sid,
+    upload_id:  t.upload_id,
+    event_id:   t.event_id,
+    name:       name,
+  });
+  location.href = `viva.html?${qp.toString()}`;
+}
+
+async function load() {
+  const listEl = document.getElementById('list');
+  try {
+    const res = await fetch(`${API}/student/my-tests?roll_number=${encodeURIComponent(roll)}`);
+    const data = await res.json();
+    if (!res.ok) { listEl.innerHTML = `<div class="empty">Could not load tests: ${escHtml(data.detail || 'error')}</div>`; return; }
+
+    const tests = data.tests || [];
+    if (!tests.length) {
+      listEl.innerHTML = `<div class="empty">No tests have been assigned to you yet.<br>Check back once your professor adds you to a test.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = '';
+    tests.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      let badge, action;
+      const outOf = (t.max_marks != null) ? t.max_marks : 30;
+      if (t.attempted) {
+        badge  = `<span class="badge done">Completed</span> <span class="t-meta">Score: <span class="score-pill">${t.score}/${outOf}</span>${t.grade ? ` · ${escHtml(t.grade)}` : ''}</span>`;
+        action = `<button class="btn-start" disabled>Completed</button>`;
+      } else if (!t.ready) {
+        badge  = `<span class="badge pending">Preparing</span>`;
+        action = `<button class="btn-start" disabled>Not ready</button>`;
+      } else {
+        badge  = `<span class="badge avail">Available · ${t.num_questions || 10} questions · ${outOf} marks</span>`;
+        action = `<button class="btn-start">Start Test</button>`;
+      }
+
+      card.innerHTML =
+        `<div class="info">
+           <div class="t-title">${escHtml(t.title)}</div>
+           <div class="t-file">${escHtml(t.filename)}</div>
+           <div>${badge}</div>
+         </div>`;
+      const wrap = document.createElement('div');
+      wrap.innerHTML = action;
+      const btn = wrap.firstElementChild;
+      if (!t.attempted && t.ready) btn.onclick = () => startTest(t);
+      card.appendChild(btn);
+      listEl.appendChild(card);
+    });
+  } catch (e) {
+    listEl.innerHTML = `<div class="empty">Cannot reach the server. Please try again.</div>`;
+    console.error(e);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

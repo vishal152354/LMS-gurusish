@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Viva Prep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/prep.css?v=1">
+</head>
+<body class="prep">
+<main class="prep-wrap fade-up">
+
+  <div class="prep-topbar">
+    <a class="prep-back" href="slots.html" aria-label="Back to your viva schedule">←</a>
+    <div class="prep-topbar-title">
+      <div class="eyebrow">Viva Prep</div>
+      <h1 id="subjectTitle">Loading…</h1>
+    </div>
+  </div>
+
+  <div class="prep-intro">
+    <h2>Get ready for your viva</h2>
+    <p id="introText">Practise with questions drawn from your viva material.</p>
+    <div class="subject-picker" id="subjectPicker" hidden>
+      <label for="subjectSelect">Subject</label>
+      <select id="subjectSelect"></select>
+    </div>
+  </div>
+
+  <div id="content" aria-live="polite">
+    <div class="state-panel"><span class="spinner"></span></div>
+  </div>
+
+</main>
+
+<script src="js/prep-service.js?v=1"></script>
+<script>
+const ICONS = {
+  flashcards: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="14" height="13" rx="2.5"/><path d="M7 4h11.5A2.5 2.5 0 0 1 21 6.5V16"/></svg>',
+  mcq: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="5" cy="18" r="1.6"/><path d="M10 6h10M10 12h10M10 18h10"/></svg>',
+};
+
+const params = new URLSearchParams(location.search);
+let subjects = [];
+let current  = null;
+let pollTimer = null;
+
+async function init() {
+  if (!requireStudent()) return;
+  try {
+    subjects = await PrepService.subjects();
+  } catch (e) {
+    return showPanel('Viva Prep is unavailable', e.message);
+  }
+  if (!subjects.length) {
+    document.getElementById('subjectTitle').textContent = 'No subjects yet';
+    return showPanel('Nothing to prepare yet', 'Viva Prep appears here once your professor adds you to a viva event.');
+  }
+  let wanted = params.get('upload_id');
+  try { wanted = wanted || localStorage.getItem('prep_last_subject'); } catch (e) {}
+  current = subjects.find(s => s.upload_id === wanted) || subjects[0];
+
+  if (subjects.length > 1) {
+    const sel = document.getElementById('subjectSelect');
+    sel.innerHTML = subjects.map(s => `<option value="${esc(s.upload_id)}">${esc(s.title)}</option>`).join('');
+    sel.value = current.upload_id;
+    sel.onchange = () => { current = subjects.find(s => s.upload_id === sel.value); open(); };
+    document.getElementById('subjectPicker').hidden = false;
+  }
+  open();
+}
+
+async function open() {
+  clearTimeout(pollTimer);
+  try { localStorage.setItem('prep_last_subject', current.upload_id); } catch (e) {}
+  history.replaceState(null, '', prepUrl('prep', current.upload_id));
+  document.getElementById('subjectTitle').textContent = current.title;
+  document.getElementById('introText').textContent = `Practise with questions drawn from “${current.title}” before your viva.`;
+  refresh();
+}
+
+async function refresh() {
+  let data;
+  try {
+    data = await PrepService.load(current.upload_id);
+  } catch (e) {
+    return showPanel('Could not load Viva Prep', e.message, 'Try again', refresh);
+  }
+  if (data.status === 'ready') return renderModes(data);
+  if (data.status === 'pending') {
+    try { data = { ...data, ...(await PrepService.generate(current.upload_id)) }; } catch (e) {
+      return showPanel('Could not start preparing material', e.message, 'Try again', refresh);
+    }
+  }
+  if (data.status === 'generating') {
+    const pct = data.total_chunks ? Math.round(100 * data.done_chunks / data.total_chunks) : 5;
+    showPanel('Preparing your practice material',
+      'Writing flashcards and MCQs from your viva material. This takes a minute or two — you can leave this page and come back.',
+      null, null, Math.max(pct, 5));
+    pollTimer = setTimeout(refresh, 3000);
+    return;
+  }
+  showPanel('Practice material isn’t ready', data.error || 'Something went wrong while preparing it.', 'Try again', async () => {
+    try { await PrepService.generate(current.upload_id); } catch (e) { toast(e.message); }
+    refresh();
+  });
+}
+
+function showPanel(title, text, btnLabel, onClick, pct) {
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <div class="state-panel">
+      <h3>${esc(title)}</h3>
+      <p>${esc(text)}</p>
+      ${pct != null ? `<div class="prep-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Preparation progress"><span style="width:${pct}%"></span></div>` : ''}
+      ${btnLabel ? `<button class="btn btn-primary" id="panelBtn">${esc(btnLabel)}</button>` : ''}
+    </div>`;
+  if (btnLabel) document.getElementById('panelBtn').onclick = onClick;
+}
+
+function summarise(data) {
+  const fcIds  = new Set(data.flashcards.map(f => f.id));
+  const mcqIds = new Set(data.mcqs.map(m => m.id));
+  const fc  = data.progress.flashcards || {};
+  const mcq = data.progress.mcq || {};
+  const reviewed = (fc.viewed || []).filter(id => fcIds.has(id)).length;
+  const answered = Object.keys(mcq.answers || {}).filter(id => mcqIds.has(id)).length;
+  return {
+    flashcards: {
+      total: fcIds.size, done: reviewed, label: `${reviewed} / ${fcIds.size} reviewed`,
+      cta: fc.done ? 'Review again' : reviewed ? 'Continue' : 'Start',
+    },
+    mcq: {
+      total: mcqIds.size, done: answered, label: `${answered} / ${mcqIds.size} completed`,
+      cta: mcq.finished ? 'View results' : answered ? 'Continue' : 'Start',
+    },
+  };
+}
+
+function renderModes(data) {
+  const s = summarise(data);
+  const modes = [
+    { key: 'flashcards', page: 'flashcards', title: 'Flashcards', desc: 'Rehearse likely viva questions and answers' },
+    { key: 'mcq',        page: 'mcq',        title: 'MCQs',       desc: 'Check your understanding before the viva' },
+  ];
+  const totalItems = s.flashcards.total + s.mcq.total;
+  const overall = totalItems ? Math.round(100 * (s.flashcards.done + s.mcq.done) / totalItems) : 0;
+
+  document.getElementById('content').innerHTML = `
+    <div class="mode-grid">
+      ${modes.map(m => {
+        const st = s[m.key];
+        const pct = st.total ? Math.round(100 * st.done / st.total) : 0;
+        const empty = st.total === 0;
+        return `
+        <button class="mode-card" data-page="${m.page}" ${empty ? 'aria-disabled="true"' : ''}
+                aria-label="${m.title}: ${m.desc}. ${empty ? 'No items available' : st.label}">
+          <span class="mode-icon">${ICONS[m.key]}</span>
+          <h3>${m.title}</h3>
+          <span class="desc">${m.desc}</span>
+          <span class="mode-meta"><span>${empty ? 'No items yet' : st.label}</span><span>${pct}%</span></span>
+          <span class="prep-progress" style="margin:0" aria-hidden="true"><span style="width:${pct}%"></span></span>
+          <span class="mode-cta">${empty ? '—' : st.cta + ' →'}</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="overall">
+      <span>Overall viva prep</span>
+      <span class="prep-progress" role="progressbar" aria-valuenow="${overall}" aria-valuemin="0" aria-valuemax="100" aria-label="Overall viva prep progress"><span style="width:${overall}%"></span></span>
+      <span>${overall}%</span>
+    </div>`;
+
+  document.querySelectorAll('.mode-card').forEach(card => {
+    if (card.getAttribute('aria-disabled') === 'true') return;
+    card.onclick = () => { location.href = prepUrl(card.dataset.page, current.upload_id); };
+  });
+}
+
+init();
+</script>
+</body>
+</html>

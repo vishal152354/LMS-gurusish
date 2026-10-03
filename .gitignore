@@ -1,0 +1,38 @@
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local environment / API config files (CRITICAL: Do not upload API keys!)
+.env
+config.yaml
+.hermes/
+
+# Databases
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+
+# Log files
+*.log
+tunnel.log
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local secrets & runtime data (never publish)
+viva-webapp/.env
+backend/.env
+*.db
+server.log
+viva-webapp/data/

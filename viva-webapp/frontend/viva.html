@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Examination</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+body { background: var(--bg); background-image: var(--bg-gradient); background-attachment: fixed; margin: 0; height: 100vh; overflow: hidden; color: var(--text); }
+
+.viva-layout { display: flex; height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 280px; min-width: 260px;
+  background: var(--surface); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto; padding: 20px;
+  gap: 16px;
+}
+.avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 15px;
+  background: var(--surface-strong); border: 1px solid var(--border-strong); color: var(--text);
+}
+.student-card { display: flex; align-items: center; gap: 12px; }
+.student-info .student-name { font-weight: 700; font-size: 15px; }
+.student-info .student-roll { font-size: 12px; color: var(--text-muted); }
+.student-info .student-file { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+.sidebar-section { }
+.sidebar-label {
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+}
+
+.q-progress-num {
+  font-family: var(--font-serif);
+  font-size: 2.2rem; font-weight: 600; color: var(--text);
+  line-height: 1; margin-bottom: 4px;
+}
+.q-progress-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.progress-bar-wrap { height: 6px; border-radius: 50px; background: var(--surface-strong); overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--primary); border-radius: 50px; transition: width .3s ease; }
+
+.score-big { font-family: var(--font-serif); font-size: 2.2rem; font-weight: 600; color: var(--text); }
+.score-sub { font-size: 12px; color: var(--text-muted); }
+.score-rows { margin-top: 8px; }
+.score-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; padding: 2px 0;
+}
+.score-row-label { color: var(--text-secondary); }
+.score-row-val   { font-weight: 600; }
+
+.topic-chip {
+  display: inline-block; padding: 5px 14px;
+  background: var(--surface-strong); color: var(--text);
+  border: 1px solid var(--border); border-radius: 50px; font-size: 12px; font-weight: 600;
+}
+.timer-text { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--text); }
+
+.integrity-wrap { font-size: 11px; color: var(--text-muted); }
+.integrity-row   { display: flex; justify-content: space-between; }
+.integrity-val   { font-weight: 600; }
+.integrity-val.warn { color: var(--warning); }
+.integrity-val.danger { color: var(--danger); }
+
+/* ── Main panel ── */
+.main-panel {
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
+  overflow: hidden;
+}
+.chat-topbar {
+  padding: 16px 24px; border-bottom: 1px solid var(--border);
+  background: var(--surface); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.examiner-label { font-family: var(--font-serif); display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; color: var(--text); }
+.status-label { font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px rgba(52,211,153,.6); }
+
+.chat-area {
+  flex: 1; overflow-y: auto; padding: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.msg-row { display: flex; max-width: 80%; }
+.msg-row.agent { align-self: flex-start; flex-direction: column; }
+.msg-row.student { align-self: flex-end; flex-direction: column; align-items: flex-end; }
+
+.msg-sender { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+.msg-bubble {
+  padding: 12px 16px; border-radius: 12px;
+  font-size: 14px; line-height: 1.6; max-width: 100%;
+}
+.msg-row.agent  .msg-bubble { background: var(--surface); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--border); color: var(--text); border-top-left-radius: 4px; }
+.msg-row.student .msg-bubble { background: var(--surface-strong); border: 1px solid var(--border-strong); color: var(--text); border-bottom-right-radius: 4px; }
+
+/* feedback bubble — subtle green glass tint */
+.feedback-bubble {
+  background: rgba(52,211,153,0.10) !important;
+  border: 1px solid rgba(52,211,153,0.30) !important;
+  color: #A7F3D0 !important;
+  font-style: italic;
+}
+
+/* follow-up bubble — warm glass tone */
+.followup-bubble {
+  background: rgba(251,191,36,0.10) !important;
+  border: 1px solid rgba(251,191,36,0.32) !important;
+  border-top-left-radius: 4px !important;
+  color: #FDE68A !important;
+  font-weight: 600;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  padding: 14px 18px !important;
+}
+
+/* question bubble — highlighted glass card */
+.question-bubble {
+  background: var(--surface-strong) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-top-left-radius: 4px !important;
+  color: var(--text) !important;
+  font-weight: 600;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  padding: 16px 20px !important;
+  box-shadow: var(--glow);
+}
+.q-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+/* student answer */
+.student-answer-bubble {
+  background: var(--surface-strong) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-bottom-right-radius: 4px !important;
+  padding: 14px 18px !important;
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0.01em;
+}
+
+/* closing remarks */
+.closing-bubble {
+  background: rgba(52,211,153,0.08) !important;
+  color: var(--text) !important;
+  border: 1px solid rgba(52,211,153,0.28) !important;
+  border-radius: var(--radius-card) !important;
+  padding: 20px 22px !important;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+  box-shadow: var(--glow);
+}
+.closing-score {
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.msg-time { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+.q-divider {
+  text-align: center; font-size: 12px; color: var(--text-muted);
+  display: flex; align-items: center; gap: 8px; padding: 4px 0;
+}
+.q-divider::before, .q-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── MCQ options ── */
+.mcq-options {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 6px 0 18px; max-width: 640px;
+}
+.mcq-option {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 13px 15px; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 15px; line-height: 1.4;
+  transition: border-color .15s, background .15s, transform .05s;
+}
+.mcq-option { backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+.mcq-option:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-strong); }
+.mcq-option:active:not(:disabled) { transform: scale(.995); }
+.mcq-option:disabled { cursor: default; opacity: .95; }
+.mcq-letter {
+  flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px;
+  background: var(--surface-strong); border: 1px solid var(--border); color: var(--text);
+}
+.mcq-text { flex: 1; }
+.mcq-option.selected { border-color: var(--border-strong); }
+.mcq-option.correct {
+  border-color: var(--success); background: rgba(52,211,153,.14);
+}
+.mcq-option.correct .mcq-letter { background: var(--success); color: #06231A; }
+.mcq-option.wrong {
+  border-color: var(--danger); background: rgba(248,113,113,.12);
+}
+.mcq-option.wrong .mcq-letter { background: var(--danger); color: #2A0A0A; }
+
+/* ── Flashcard (pops up after each answer) ── */
+.flash-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10,11,14,.60); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fcFade .18s ease;
+}
+@keyframes fcFade { from { opacity: 0; } to { opacity: 1; } }
+.flash-card {
+  background: rgba(26,28,33,0.98); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card); padding: 28px 30px; max-width: 460px; width: 100%;
+  box-shadow: var(--shadow-lg); text-align: left; color: var(--text);
+  animation: fcPop .2s ease;
+}
+@keyframes fcPop { from { transform: translateY(10px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.fc-verdict { font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+.fc-verdict.fc-correct { color: var(--success); }
+.fc-verdict.fc-wrong   { color: var(--danger); }
+.fc-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-muted); margin: 14px 0 6px;
+}
+.fc-answer {
+  font-size: 16px; font-weight: 600; color: var(--text);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.fc-letter {
+  flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--success); color: #06231A; font-size: 13px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fc-expl { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.fc-next {
+  margin-top: 22px; width: 100%; padding: 13px; border: none; border-radius: var(--radius-btn);
+  background: var(--primary); color: #16181D; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.fc-next:hover { background: #FFFFFF; }
+
+/* ── Input bar ── */
+.chat-input-bar {
+  padding: 14px 16px; border-top: 1px solid var(--border);
+  background: var(--surface); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+}
+.input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.answer-input {
+  flex: 1;
+  width: 100%;
+  min-height: 52px;
+  max-height: 200px;
+  resize: none;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: var(--transition);
+}
+.answer-input:focus {
+  border-color: var(--primary);
+}
+.mic-btn {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: none; cursor: pointer; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); border: 2px solid var(--border);
+  transition: var(--transition);
+}
+.mic-btn:hover { border-color: var(--primary); }
+.mic-btn.recording { background: var(--danger); color: #fff; border-color: var(--danger); }
+.send-btn {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: none; cursor: pointer; font-size: 18px;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.send-btn:hover { background: var(--primary-dark); }
+.send-btn:disabled { background: var(--border); cursor: not-allowed; }
+
+.quick-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 14px; border-radius: 50px;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--border);
+  transition: var(--transition); color: var(--text-secondary);
+}
+.chip:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+
+/* ── Integrity overlay ── */
+.integrity-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+.integrity-overlay.show { display: flex; }
+.integrity-modal {
+  background: var(--surface-strong); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-card); padding: 32px;
+  max-width: 400px; text-align: center; color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+.integrity-modal h2 { color: var(--warning); margin-bottom: 8px; }
+.integrity-modal p { color: var(--text-secondary); }
+.integrity-modal p  { font-size: 14px; margin-bottom: 20px; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .msg-row { max-width: 95%; }
+}
+
+/* ── Drag-and-drop answering ── */
+.mcq-options.dnd [hidden] { display: none !important; }
+.mcq-options.dnd { gap: 12px; }
+.dnd-slot {
+  position: relative; min-height: 64px; border-radius: 14px;
+  border: 2px dashed var(--border-strong); background: rgba(255,255,255,0.025);
+  display: flex; align-items: center; padding: 8px;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.dnd-slot-empty { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); font-size: 14px; pointer-events: none; }
+.dnd-slot-icon { font-size: 18px; opacity: .8; }
+.dnd-slot.awaiting { border-color: rgba(125,211,252,.55); }
+.dnd-slot.awaiting .dnd-slot-empty { color: #7DD3FC; }
+.dnd-slot.drop-hover {
+  border-style: solid; border-color: #7DD3FC; background: rgba(125,211,252,.10);
+  box-shadow: 0 0 0 4px rgba(125,211,252,.12), inset 0 0 24px rgba(125,211,252,.08);
+}
+.dnd-slot.filled { border-style: solid; border-color: #7DD3FC; background: rgba(125,211,252,.08); }
+.dnd-slot-filled {
+  flex: 1; display: flex; align-items: center; gap: 12px; padding: 6px 8px;
+  color: var(--text); font-size: 15px; line-height: 1.4;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.dnd-slot-filled .mcq-letter { background: #7DD3FC; color: #082032; border-color: transparent; }
+.dnd-filled-text { flex: 1; }
+.dnd-clear {
+  flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-secondary); cursor: pointer; font-size: 12px;
+}
+.dnd-clear:hover { color: var(--text); border-color: var(--border-strong); }
+.dnd-slot.is-correct { border-color: var(--success); background: rgba(52,211,153,.12); box-shadow: none; }
+.dnd-slot.is-correct .mcq-letter { background: var(--success); color: #06231A; }
+.dnd-slot.is-wrong { border-color: var(--danger); background: rgba(248,113,113,.10); box-shadow: none; }
+.dnd-slot.is-wrong .mcq-letter { background: var(--danger); color: #2A0A0A; }
+.dnd-slot.is-correct .dnd-slot-filled, .dnd-slot.is-wrong .dnd-slot-filled { cursor: default; }
+
+.dnd-hint { font-size: 12.5px; color: var(--text-muted); margin-top: -2px; }
+.dnd-chips { display: flex; flex-direction: column; gap: 8px; }
+.dnd-chip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.dnd-chip:active:not(:disabled) { cursor: grabbing; transform: none; }
+.dnd-grip { color: var(--text-muted); font-size: 13px; letter-spacing: -2px; opacity: .55; flex: 0 0 auto; transition: opacity .15s; }
+.dnd-chip:hover .dnd-grip { opacity: 1; }
+.dnd-chip.placed { opacity: .38; border-style: dashed; }
+.dnd-chip.dragging-src { opacity: .25; border-style: dashed; }
+.dnd-chip:focus-visible, .dnd-submit:focus-visible, .dnd-clear:focus-visible { outline: 2px solid #7DD3FC; outline-offset: 2px; }
+.mcq-options.revealed .dnd-chip { cursor: default; }
+.mcq-options.revealed .dnd-chip.placed { opacity: .55; }
+.mcq-options.revealed .dnd-chip.correct { opacity: 1; border-style: solid; }
+.mcq-options.revealed .dnd-grip { visibility: hidden; }
+
+.dnd-ghost {
+  position: fixed !important; top: 0; left: 0; margin: 0 !important; z-index: 2000;
+  pointer-events: none; cursor: grabbing; will-change: transform;
+  border-color: #7DD3FC !important; background: rgba(30,34,42,.96) !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(125,211,252,.35);
+  transition: none !important;
+}
+body.dnd-active, body.dnd-active * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+
+.dnd-actions { display: flex; justify-content: flex-end; }
+.dnd-submit {
+  padding: 11px 22px; border-radius: 50px; border: none; cursor: pointer;
+  font: inherit; font-size: 14.5px; font-weight: 600;
+  background: var(--primary); color: #16181D;
+  transition: opacity .15s, transform .1s;
+}
+.dnd-submit:hover:not(:disabled) { transform: translateY(-1px); }
+.dnd-submit:disabled { opacity: .35; cursor: not-allowed; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 600px) {
+  .dnd-slot { min-height: 60px; }
+  .dnd-submit { width: 100%; padding: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dnd-slot, .dnd-grip, .dnd-submit { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="viva-layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="student-card">
+      <div class="avatar" id="avatarEl">ST</div>
+      <div class="student-info">
+        <div class="student-name" id="sideStudentName">Student</div>
+        <div class="student-roll" id="sideRollNum">Roll: —</div>
+        <div class="student-file" id="sideFileName">—</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Viva Progress</div>
+      <div class="q-progress-num"><span id="qCurrent">0</span></div>
+      <div class="q-progress-sub">of <span id="qTotalLabel">10</span> questions</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="qProgressBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Content Score</div>
+      <div class="score-big"><span id="scoreTotal">—</span><span style="font-size:1rem;color:var(--text-muted)">/<span id="maxMarksLabel">30</span></span></div>
+    </div>
+
+    <div class="sidebar-section" style="display:none;">
+      <div class="score-rows">
+        <span class="score-row-val" id="live-content"></span>
+        <span class="score-row-val" id="live-confidence"></span>
+        <span class="score-row-val" id="live-english"></span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Time Elapsed</div>
+      <div class="timer-text" id="timerEl">00:00</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Current Question</div>
+      <div class="topic-chip" id="topicChip">Loading…</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Session Integrity</div>
+      <div class="integrity-wrap">
+        <div class="integrity-row">
+          <span>Tab switches</span>
+          <span class="integrity-val" id="tabSwitchCount">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main panel -->
+  <div class="main-panel">
+    <div class="chat-topbar">
+      <div class="examiner-label">Pariksha Examiner</div>
+      <div class="status-label">
+        <span class="status-dot green" id="statusDot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
+
+    <div class="chat-area" id="chatArea"></div>
+
+    <div class="chat-input-bar">
+      <!-- Hidden text input kept so legacy handlers don't error -->
+      <div class="input-row" style="display:none;">
+        <textarea class="answer-input" id="answerInput" rows="1"></textarea>
+      </div>
+      <div style="text-align:center;font-size:13px;color:var(--text-muted);">
+        Select an option above to answer each question.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Integrity overlay -->
+<div class="integrity-overlay" id="integrityOverlay">
+  <div class="integrity-modal">
+    <h2>Stay on This Page</h2>
+    <p>Please do not switch tabs or windows during your viva examination.</p>
+    <p id="warnCount" style="color:var(--danger);font-weight:600;">Warning 1 of 3</p>
+    <button class="btn btn-primary" onclick="dismissWarning()">I understand, continue</button>
+  </div>
+</div>
+
+<script src="js/speech.js?v=8"></script>
+<script src="js/audio.js?v=8"></script>
+<script src="js/integrity.js?v=8"></script>
+<script src="js/mcq-dnd.js?v=2"></script>
+<script src="js/viva.js?v=14"></script>
+</body>
+</html>

@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Book Your Slot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+body { background: linear-gradient(135deg,#F0F4FF 0%,#F8FAFC 100%); min-height:100vh; padding:28px 16px; }
+.dash-wrap { max-width:700px; margin:0 auto; }
+.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+.page-header h1 { font-size:1.6rem; font-weight:700; color:var(--text); }
+.page-header .sub { font-size:13px; color:var(--text-secondary); margin-top:2px; }
+.logout-btn { font-size:13px; color:var(--text-muted); cursor:pointer; background:none; border:none; text-decoration:underline; }
+
+.section-title { font-size:1rem; font-weight:700; color:var(--text); margin:24px 0 12px; display:flex; align-items:center; gap:8px; }
+
+/* Booking card */
+.booking-card { border-radius:14px; padding:20px 22px; margin-bottom:8px; }
+.booking-card.active { background:#eff6ff; border:2px solid #2563eb; }
+.booking-card.none { background:var(--bg); border:2px dashed var(--border); color:var(--text-muted); text-align:center; padding:28px; }
+.booking-time { font-size:1.4rem; font-weight:700; color:#1e40af; }
+.booking-meta { font-size:13px; color:var(--text-secondary); margin-top:4px; }
+.join-btn { margin-top:14px; }
+
+/* Slot grid */
+.slots-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-top:10px; }
+.slot-chip {
+  border-radius:10px; padding:10px 12px; text-align:center;
+  font-size:13px; font-weight:600; cursor:pointer;
+  border:2px solid transparent; transition:.15s;
+}
+.slot-chip.available { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+.slot-chip.available:hover { background:#dcfce7; border-color:#4ade80; }
+.slot-chip.selected { background:#dbeafe; color:#1e40af; border-color:#2563eb; cursor:default; }
+.slot-chip.booking  { background:#fffbeb; color:#92400e; border-color:#fde68a; cursor:wait; opacity:.7; }
+.slot-chip .slot-time  { font-size:14px; }
+.slot-chip .slot-label { font-size:11px; margin-top:2px; opacity:.7; }
+
+/* Event cards */
+.event-card { background:var(--bg); border-radius:12px; border:1px solid var(--border); margin-bottom:16px; overflow:hidden; }
+.event-header { padding:16px 18px; display:flex; align-items:flex-start; justify-content:space-between; cursor:pointer; }
+.event-header:hover { background:#f8fafc; }
+.event-title { font-weight:600; font-size:15px; }
+.event-meta { font-size:12px; color:var(--text-muted); margin-top:3px; }
+.event-badge { font-size:12px; font-weight:600; padding:3px 10px; border-radius:50px; white-space:nowrap; }
+.badge-open   { background:#f0fdf4; color:#166534; }
+.badge-booked { background:#eff6ff; color:#1e40af; }
+.event-body { padding:0 18px 16px; display:none; }
+.event-body.open { display:block; }
+
+/* Inline booking confirmation */
+#booking-confirm-card {
+  margin-top:14px; padding:14px 16px;
+  background:#eff6ff; border:2px solid #2563eb; border-radius:10px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+}
+#booking-confirm-card .confirm-text { font-size:14px; color:#1e40af; font-weight:500; }
+#booking-confirm-card .confirm-btns { display:flex; gap:8px; }
+.btn-cancel-confirm {
+  padding:7px 18px; border-radius:8px; border:1px solid #93c5fd;
+  background:#fff; color:#1e40af; font-size:13px; font-weight:600; cursor:pointer;
+}
+.btn-confirm-book {
+  padding:7px 18px; border-radius:8px; border:none;
+  background:#2563eb; color:#fff; font-size:13px; font-weight:600; cursor:pointer;
+}
+
+/* Change slot button */
+.btn-change-slot {
+  margin-top:12px; padding:7px 16px; border-radius:8px; font-size:13px; font-weight:600;
+  border:1.5px solid #f59e0b; background:#fffbeb; color:#92400e; cursor:pointer;
+  transition:.15s;
+}
+.btn-change-slot:hover { background:#fef3c7; }
+
+/* Toast */
+#toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+.toast {
+  padding:14px 18px; border-radius:10px; font-size:14px; font-weight:500;
+  box-shadow:0 4px 16px rgba(0,0,0,0.15); min-width:260px; max-width:360px;
+  animation:slideIn .25s ease;
+}
+.toast.success { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+.toast.error   { background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+.toast.info    { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+@keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+.spinner-sm { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.empty-state { text-align:center; color:var(--text-muted); padding:32px; font-size:14px; }
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="dash-wrap fade-up">
+
+  <div class="page-header">
+    <div>
+      <h1 id="welcomeHeading">Book Your Viva Slot</h1>
+      <div class="sub" id="rollDisplay"></div>
+    </div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div id="notificationsSection" style="margin-top: 10px;"></div>
+
+  <!-- MY BOOKING -->
+  <div class="section-title" id="bookingTitle">📅 My Upcoming Booking</div>
+  <div id="bookingSection">
+    <div class="booking-card none">No booking yet. Select a slot below to book.</div>
+  </div>
+
+  <!-- AVAILABLE SLOTS -->
+  <div class="section-title" id="eventsTitle">🗓️ Available Slots</div>
+  <div id="eventsSection">
+    <div class="empty-state"><span class="spinner-sm"></span> Loading your viva schedule…</div>
+  </div>
+
+</div>
+
+<script>
+var API = window.API || '';
+const params    = new URLSearchParams(location.search);
+const studentId = params.get('student_id') || sessionStorage.getItem('student_id');
+const roll      = params.get('roll')       || sessionStorage.getItem('roll_number') || '';
+const name      = params.get('name')       || sessionStorage.getItem('student_name') || 'Student';
+
+if (!studentId || !roll) {
+  location.href = '/';
+}
+
+sessionStorage.setItem('student_id', studentId);
+sessionStorage.setItem('roll_number', roll);
+sessionStorage.setItem('student_name', name);
+
+document.getElementById('welcomeHeading').textContent = `Welcome, ${name}!`;
+document.getElementById('rollDisplay').textContent    = `Roll No: ${roll}`;
+
+let eventInfo    = null;  // Full event data with sub_slots
+let bookedSlot   = null;  // { start, end, label, slotDate }
+let countdownInt = null;
+let _pendingBooking = null;  // { slot }
+
+// ── Helpers ───────────────────────────────────────────────────
+function fmtDateTime(dtStr) {
+  if (!dtStr) return "—";
+  try {
+    const dt = new Date(dtStr);
+    return dt.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) + ' at ' + dt.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+  } catch(e) { return dtStr; }
+}
+
+function fmtJustDate(d) {
+  if (!d) return '';
+  try {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+  } catch(e) { return d; }
+}
+
+function formatSlotTimeRange(slotTimeStr) {
+  if (!slotTimeStr) return "";
+  const match = slotTimeStr.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+  if (match) {
+    const [_, dateStr, start, end] = match;
+    return fmtJustDate(dateStr) + ' at ' + fmtTime(start) + ' – ' + fmtTime(end);
+  }
+  return slotTimeStr;
+}
+
+let notificationInterval = null;
+let countdownInterval = null;
+let renderedNotificationIds = new Set();
+let renderedNotificationSlots = new Set();
+
+async function loadNotifications() {
+  try {
+    const res = await fetch(`${API}/student/notifications/${encodeURIComponent(roll)}?t=${Date.now()}`);
+    if (!res.ok) return;
+    let notifs = await res.json();
+    
+    const wrapper = document.getElementById('notificationsSection');
+    if (!wrapper) return;
+    
+    wrapper.innerHTML = '';
+    notifs = notifs.filter(n => n.type !== 'upcoming');
+    
+    renderedNotificationIds.clear();
+    renderedNotificationSlots.clear();
+    
+    if (notifs.length === 0) return;
+    
+    notifs.forEach(n => {
+      if (localStorage.getItem(`dismissed_notif_${n.id}`) === 'true') {
+        return;
+      }
+      
+      renderedNotificationIds.add(n.id);
+      if (n.slot_time) {
+        renderedNotificationSlots.add(n.slot_time);
+      }
+      
+      const card = document.createElement('div');
+      
+      if (n.type === 'completed') {
+        card.innerHTML = `
+          <div class="booking-card completed-notif" style="background:#f0fdf4; border:2px solid #22c55e; border-radius:14px; padding:20px 22px; margin: 12px auto; color:#14532d; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <button onclick="dismissNotif('${n.id}', this)" style="position:absolute; top:12px; right:12px; background:none; border:none; color:#15803d; font-size:18px; font-weight:bold; cursor:pointer; opacity:0.7;">&times;</button>
+            <div style="font-weight:700; font-size:1.15rem; color:#15803d; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span>✅ Viva Completed Successfully</span>
+            </div>
+            <div style="font-size:14px; line-height:1.7; font-weight:500;">
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#166534; font-weight:600;">Topic</span>
+                <span>: ${n.topic}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#166534; font-weight:600;">Score</span>
+                <span>: <strong style="font-size:15px; color:#15803d;">${n.score}</strong> / 30 &nbsp; &nbsp; <span style="background:#dcfce7; padding:2px 8px; border-radius:50px; font-weight:700; border:1px solid #bbf7d0; font-size:12px;">Grade: ${n.grade}</span></span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:12px;">
+                <span style="color:#166534; font-weight:600;">Attended</span>
+                <span>: ${fmtDateTime(n.slot_time)}</span>
+              </div>
+              <div style="border-top:1px solid #bbf7d0; padding-top:10px; font-size:13.5px; color:#166534; font-style:italic; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <span>Well done! Your results have been recorded.</span>
+                <a href="complete.html?student_id=${studentId}&upload_id=${n.upload_id || (eventInfo ? eventInfo.upload_id : '')}" class="btn btn-secondary btn-sm" style="display:inline-block; padding:4px 10px; font-size:12px; border:1px solid #bbf7d0; background:#fff; border-radius:6px; color:#166534; text-decoration:none; font-weight:600; font-family:inherit;">View Detailed Feedback</a>
+              </div>
+            </div>
+            <div style="font-size:12px; color:#166534; margin-top:12px; text-align:right; font-weight:600; opacity:0.8;" class="countdown-expiry" data-expiry="${n.expires_at}">
+              Checking expiration...
+            </div>
+          </div>
+        `;
+      } else if (n.type === 'missed') {
+        card.innerHTML = `
+          <div class="booking-card missed-notif" style="background:#fff7ed; border:2px solid #f97316; border-radius:14px; padding:20px 22px; margin: 12px auto; color:#7c2d12; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <button onclick="dismissNotif('${n.id}', this)" style="position:absolute; top:12px; right:12px; background:none; border:none; color:#c2410c; font-size:18px; font-weight:bold; cursor:pointer; opacity:0.7;">&times;</button>
+            <div style="font-weight:700; font-size:1.15rem; color:#c2410c; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span>⚠️ You Missed Your Viva</span>
+            </div>
+            <div style="font-size:14px; line-height:1.7; font-weight:500;">
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#9a3412; font-weight:600;">Topic</span>
+                <span>: ${n.topic}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#9a3412; font-weight:600;">Slot</span>
+                <span>: ${formatSlotTimeRange(n.slot_time)}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:12px;">
+                <span style="color:#9a3412; font-weight:600;">Status</span>
+                <span style="color:#ea580c; font-weight:700;">: Not attended</span>
+              </div>
+              <div style="border-top:1px solid #fed7aa; padding-top:10px; font-size:13.5px; color:#9a3412;">
+                Please contact your professor to reschedule.
+              </div>
+            </div>
+            <div style="font-size:12px; color:#9a3412; margin-top:12px; text-align:right; font-weight:600; opacity:0.8;" class="countdown-expiry" data-expiry="${n.expires_at}">
+              Checking expiration...
+            </div>
+          </div>
+        `;
+      } else if (n.type === 'not_booked') {
+        card.innerHTML = `
+          <div class="booking-card missed-notif" style="background:#fef2f2; border:2px solid #ef4444; border-radius:14px; padding:20px 22px; margin: 12px auto; color:#7f1d1d; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <button onclick="dismissNotif('${n.id}', this)" style="position:absolute; top:12px; right:12px; background:none; border:none; color:#b91c1c; font-size:18px; font-weight:bold; cursor:pointer; opacity:0.7;">&times;</button>
+            <div style="font-weight:700; font-size:1.15rem; color:#b91c1c; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span>⚠️ You Missed Your Viva</span>
+            </div>
+            <div style="font-size:14px; line-height:1.7; font-weight:500;">
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#991b1b; font-weight:600;">Topic</span>
+                <span>: ${n.topic}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#991b1b; font-weight:600;">Slot</span>
+                <span>: ${formatSlotTimeRange(n.slot_time)}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:12px;">
+                <span style="color:#991b1b; font-weight:600;">Status</span>
+                <span style="color:#dc2626; font-weight:700;">: Not booked</span>
+              </div>
+              <div style="border-top:1px solid #fca5a5; padding-top:10px; font-size:13.5px; color:#991b1b;">
+                Please contact your professor to reschedule.
+              </div>
+            </div>
+            <div style="font-size:12px; color:#991b1b; margin-top:12px; text-align:right; font-weight:600; opacity:0.8;" class="countdown-expiry" data-expiry="${n.expires_at}">
+              Checking expiration...
+            </div>
+          </div>
+        `;
+      } else if (n.type === 'upcoming') {
+        const slotParts = n.slot_time.split(" ");
+        const datePart = slotParts[0];
+        const timeStart = slotParts[1];
+        const timeEnd = n.slot_time.split(" - ")[1] || '';
+        
+        card.innerHTML = `
+          <div class="booking-card upcoming-notif" style="background:#eff6ff; border:2px solid #3b82f6; border-radius:14px; padding:20px 22px; margin: 12px auto; color:#1e3a8a; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <div style="font-weight:700; font-size:1.15rem; color:#1d4ed8; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span>📅 Upcoming Viva</span>
+            </div>
+            <div style="font-size:14px; line-height:1.7; font-weight:500;">
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#1e40af; font-weight:600;">Topic</span>
+                <span>: ${n.topic}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:4px;">
+                <span style="color:#1e40af; font-weight:600;">Date</span>
+                <span>: ${fmtJustDate(datePart)}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:90px 1fr; margin-bottom:12px;">
+                <span style="color:#1e40af; font-weight:600;">Time</span>
+                <span>: ${fmtTime(timeStart)} - ${fmtTime(timeEnd)}</span>
+              </div>
+              <div style="border-top:1px solid #bfdbfe; padding-top:10px; font-size:13.5px; color:#1e40af; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <span>Your slot starts in: <strong class="upcoming-countdown" data-start="${n.slot_start_iso}" style="font-size:15px; color:#1d4ed8; font-family:monospace;">[countdown]</strong></span>
+                <button class="btn btn-primary btn-sm join-notif-btn" id="joinNotifBtn_${n.id}" ${n.can_join ? '' : 'disabled'} onclick="startVivaNotif('${n.upload_id}', '${n.slot_id}', '${n.id}')" style="margin:0; padding:6px 14px; font-size:12px; font-weight:600;">Join Viva</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      wrapper.appendChild(card.firstElementChild);
+    });
+    tickNotifications();
+  } catch(e) {
+    console.error("Error loading notifications:", e);
+  }
+}
+
+function dismissNotif(id, btnEl) {
+  localStorage.setItem(`dismissed_notif_${id}`, 'true');
+  const cardEl = btnEl.closest('.booking-card');
+  if (cardEl) cardEl.remove();
+  loadEventInfo();
+}
+
+function tickNotifications() {
+  document.querySelectorAll('.countdown-expiry').forEach(el => {
+    const expiryStr = el.dataset.expiry;
+    const expiry = new Date(expiryStr);
+    const now = new Date();
+    const diffMs = expiry - now;
+    if (diffMs <= 0) {
+      const cardEl = el.closest('.booking-card');
+      if (cardEl) cardEl.remove();
+      loadEventInfo();
+    } else {
+      const totalMins = Math.floor(diffMs / (60 * 1000));
+      const hrs = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      el.textContent = `This notification disappears in ${hrs} hrs ${mins} mins`;
+    }
+  });
+  
+  document.querySelectorAll('.upcoming-countdown').forEach(el => {
+    const startStr = el.dataset.start;
+    const startDt = new Date(startStr);
+    const now = new Date();
+    const diffMs = startDt - now;
+    
+    const cardEl = el.closest('.booking-card');
+    const joinBtn = cardEl ? cardEl.querySelector('.join-notif-btn') : null;
+    const openDt = new Date(startDt.getTime() - 2 * 60 * 1000);
+    const endDt = new Date(startDt.getTime() + 15 * 60 * 1000);
+    
+    if (now >= openDt && now <= endDt) {
+      if (joinBtn) joinBtn.removeAttribute('disabled');
+    } else {
+      if (joinBtn) joinBtn.setAttribute('disabled', 'true');
+    }
+    
+    if (diffMs <= 0) {
+      if (now > endDt) {
+        cardEl.remove();
+      } else {
+        el.textContent = "00:00:00 (Slot Active)";
+      }
+    } else {
+      const totalSecs = Math.floor(diffMs / 1000);
+      const hrs = Math.floor(totalSecs / 3600);
+      const mins = Math.floor((totalSecs % 3600) / 60);
+      const secs = totalSecs % 60;
+      const pad = (num) => String(num).padStart(2, '0');
+      el.textContent = `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+    }
+  });
+}
+
+async function startVivaNotif(uploadId, slotId, id) {
+  const btn = document.getElementById(`joinNotifBtn_${id}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+  try {
+    const res  = await fetch(`${API}/student/viva/join`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({roll_number: roll, student_name: name})
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'ready') {
+      sessionStorage.setItem('sub_agent_id',  data.sub_agent_id || '');
+      sessionStorage.setItem('upload_id',     data.upload_id    || '');
+      sessionStorage.setItem('event_id_orch', data.event_id     || '');
+      if (btn) btn.textContent = 'Starting your viva…';
+      setTimeout(() => {
+        window.location.href =
+          `viva.html?student_id=${data.student_id}` +
+          `&upload_id=${data.upload_id}` +
+          `&event_id=${data.event_id}` +
+          `&sub_agent_id=${data.sub_agent_id}` +
+          `&name=${encodeURIComponent(name)}`;
+      }, 800);
+      return;
+    }
+    if (res.ok && data.status === 'active') {
+      if (btn) btn.textContent = 'Resuming…';
+      setTimeout(() => {
+        window.location.href =
+          `viva.html?student_id=${data.student_id}` +
+          `&session_id=${data.session_id}` +
+          `&name=${encodeURIComponent(name)}`;
+      }, 600);
+      return;
+    }
+    if (res.status === 409) {
+      toast('⚠️ All viva slots are currently full. Try again in a moment.', 'error', 8000);
+      if (btn) { btn.disabled = false; btn.textContent = 'Join Viva'; }
+      return;
+    }
+    toast('❌ ' + (data.detail || 'Could not join. Please try again.'), 'error', 6000);
+    if (btn) { btn.disabled = false; btn.textContent = 'Join Viva'; }
+  } catch(e) {
+    toast('❌ Cannot connect to server.', 'error', 5000);
+    if (btn) { btn.disabled = false; btn.textContent = 'Join Viva'; }
+  }
+}
+
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const hour  = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  try {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB',
+      {weekday:'short', day:'numeric', month:'long', year:'numeric'});
+  } catch(e) { return d; }
+}
+
+function toast(msg, type = 'info', durationMs = 4000) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), durationMs);
+}
+
+function logout() {
+  sessionStorage.clear();
+  location.href = '/';
+}
+
+function renderPersistentCompletedState(result) {
+  // Legacy fallback
+}
+
+function renderNeverBookedEndedCard() {
+  // Legacy fallback
+}
+
+function renderMissedCard() {
+  const card = document.createElement('div');
+  card.className = 'booking-card missed card';
+  card.style.cssText = 'background:#fffbeb; border:1.5px solid #fde68a; color:#92400e; padding:16px; border-radius:10px; max-width:600px; margin:0 auto 12px;';
+  card.innerHTML = `
+    <div style="font-weight:700; font-size:1.1rem; margin-bottom:6px;">⚠️ Slot missed</div>
+    <div style="font-size:13.5px; line-height:1.6;">This slot time window has passed. You did not attend the viva.</div>
+  `;
+  return card.outerHTML;
+}
+
+async function loadEventInfo() {
+  try {
+    const res  = await fetch(`${API}/student/viva/event-info?roll_number=${encodeURIComponent(roll)}&t=${Date.now()}`);
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('bookingTitle').style.display = 'none';
+      document.getElementById('bookingSection').style.display = 'none';
+      document.getElementById('eventsTitle').style.display = 'block';
+      document.getElementById('eventsSection').innerHTML =
+        `<div class="empty-state">${data.detail || 'No scheduled viva found for your roll number.'}</div>`;
+      return;
+    }
+    
+    const events = Array.isArray(data) ? data : [data];
+    eventInfo = events[0] || null;
+    
+    document.getElementById('bookingTitle').style.display = 'none';
+    document.getElementById('bookingSection').style.display = 'none';
+    
+    document.getElementById('eventsTitle').style.display = 'block';
+    const mainSec = document.getElementById('eventsSection');
+    mainSec.innerHTML = '';
+    
+    const bookRes = await fetch(`${API}/student/my-booking?student_id=${studentId}&t=${Date.now()}`);
+    const bookings = bookRes.ok ? await bookRes.json() : [];
+    
+    for (const event of events) {
+      let completedResult = null;
+      try {
+        const resResult = await fetch(`/student/result/${studentId}/${event.upload_id}?event_id=${event.event_id}&t=${Date.now()}`);
+        if (resResult.ok) {
+          completedResult = await resResult.json();
+        }
+      } catch(e) {}
+      
+      const myBooking = bookings.find(b => b.event_id === event.event_id);
+      const eventEndDt = new Date(`${event.event_date}T${event.end_time}:00`);
+      const isEventEnded = new Date() > eventEndDt;
+      
+      const eventBox = document.createElement('div');
+      eventBox.className = 'event-box-container';
+      eventBox.style.cssText = 'background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:22px 24px; margin-bottom:24px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); text-align:left;';
+      
+      let badgeLabel = 'Open';
+      let badgeClass = 'badge-open';
+      if (completedResult) {
+        badgeLabel = 'Completed';
+        badgeClass = 'badge-booked';
+      } else if (myBooking && (myBooking.status === 'booked' || myBooking.status === 'in_progress')) {
+        badgeLabel = 'Booked';
+        badgeClass = 'badge-booked';
+      } else if (isEventEnded || (myBooking && myBooking.status === 'no_show')) {
+        badgeLabel = 'Ended';
+        badgeClass = 'badge-disabled';
+      }
+      
+      eventBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:14px; margin-bottom:16px;">
+          <div>
+            <h3 style="margin:0; font-size:1.25rem; font-weight:700; color:#0f172a; font-family:inherit;">${event.title}</h3>
+            <div style="font-size:13.5px; color:#64748b; margin-top:4px; font-weight:500;">
+              📅 ${fmtJustDate(event.event_date)} &nbsp;·&nbsp; 🕒 ${fmtTime(event.start_time)} – ${fmtTime(event.end_time)}
+            </div>
+          </div>
+          <span class="event-badge ${badgeClass}" style="padding:6px 12px; border-radius:30px; font-size:11px; font-weight:700; text-transform:uppercase; display:inline-block; border:1px solid transparent;">${badgeLabel}</span>
+        </div>
+        <div class="booking-status-box" style="margin-bottom:16px;"></div>
+        <div class="slots-section-box"></div>
+      `;
+      
+      const statusBox = eventBox.querySelector('.booking-status-box');
+      const slotsBox = eventBox.querySelector('.slots-section-box');
+      
+      if (completedResult) {
+        statusBox.innerHTML = `
+          <div class="booking-card completed" style="background:#f0fdf4; border:2px solid #22c55e; border-radius:14px; padding:18px 20px; color:#14532d; position:relative; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); max-width:600px; margin:0 auto;">
+            <div style="font-weight:700; font-size:1.15rem; color:#15803d; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span>✅ Viva Completed Successfully</span>
+            </div>
+            <div style="font-size:14px; font-weight:600; line-height:1.6; margin-bottom:10px;">
+              Score: ${completedResult.total || '—'}/30 &nbsp;·&nbsp; Grade: ${completedResult.grade || '—'}
+            </div>
+            <div>
+              <a href="complete.html?student_id=${studentId}&upload_id=${event.upload_id}&event_id=${event.event_id}" class="btn btn-secondary btn-sm" style="display:inline-block; padding:4px 10px; font-size:12px; border:1px solid #bbf7d0; background:#fff; border-radius:6px; color:#166534; text-decoration:none; font-weight:600; font-family:inherit;">View Detailed Feedback</a>
+            </div>
+          </div>
+        `;
+        slotsBox.style.display = 'none';
+      } else if (isEventEnded) {
+        if (myBooking && myBooking.status === 'no_show') {
+          statusBox.innerHTML = `
+            <div class="booking-card missed-notif" style="background:#fff7ed; border:2px solid #f97316; border-radius:14px; padding:18px 20px; color:#7c2d12; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin:0 auto;">
+              <div style="font-weight:700; font-size:1.15rem; color:#c2410c; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span>⚠️ You Missed Your Viva</span>
+              </div>
+              <div style="font-size:14px; line-height:1.6; font-weight:500;">
+                Slot: ${fmtTime(myBooking.slot_start)} – ${fmtTime(myBooking.slot_end)} &nbsp;·&nbsp; Status: <strong style="color:#ea580c;">Not attended</strong>
+              </div>
+            </div>
+          `;
+        } else {
+          statusBox.innerHTML = `
+            <div class="booking-card missed-notif" style="background:#fef2f2; border:2px solid #ef4444; border-radius:14px; padding:18px 20px; color:#7f1d1d; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin:0 auto;">
+              <div style="font-weight:700; font-size:1.15rem; color:#b91c1c; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span>⚠️ You Missed Your Viva</span>
+              </div>
+              <div style="font-size:14px; line-height:1.6; font-weight:500;">
+                Status: <strong style="color:#dc2626;">Not booked</strong> (Viva Session Ended)
+              </div>
+            </div>
+          `;
+        }
+        slotsBox.style.display = 'none';
+      } else if (myBooking) {
+        if (myBooking.status === 'booked' || myBooking.status === 'in_progress') {
+          const slotStartDt = new Date(`${myBooking.event_date}T${myBooking.slot_start}:00`);
+          const openDt  = new Date(slotStartDt.getTime() - 2 * 60 * 1000);
+          const closeDt = new Date(slotStartDt.getTime() + 2 * 60 * 1000);
+          const now     = new Date();
+          
+          let statusHtml = '';
+          if (now > closeDt) {
+            statusHtml = `<span style="color:#dc2626;font-weight:600;">⚠️ Slot time has passed.</span>`;
+          } else if (now >= openDt && now <= closeDt) {
+            statusHtml = `
+              <button class="btn btn-primary join-btn" id="joinVivaBtn_${event.event_id}" onclick="startViva('${event.upload_id}', '${myBooking.slot_id}', '${event.event_id}')" style="margin-top:0;">
+                🎉 Join Viva Now
+              </button>
+              <div style="margin-top:8px;font-size:12px;color:#64748b;">Your slot is open — click to start!</div>
+            `;
+          } else {
+            statusHtml = `
+              <span class="countdown-display" data-open="${openDt.toISOString()}" data-close="${closeDt.toISOString()}" data-start="${myBooking.slot_start}" data-end="${myBooking.slot_end}" data-date="${myBooking.event_date}" data-event-id="${event.event_id}" data-upload-id="${event.upload_id}" data-slot-id="${myBooking.slot_id}" style="font-size:1.1rem;font-weight:700;color:#1e40af;font-variant-numeric:tabular-nums;">⏱ Loading countdown...</span>
+            `;
+          }
+          
+          statusBox.innerHTML = `
+            <div class="booking-card" style="background:#f0f9ff; border:2px solid #0284c7; border-radius:14px; padding:18px 20px; color:#0c4a6e; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin:0 auto;">
+              <div style="font-weight:700; font-size:1.1rem; color:#0369a1; margin-bottom:8px;">📅 Booked Slot</div>
+              <div style="font-size:14px; font-weight:500;">
+                Slot: ${fmtTime(myBooking.slot_start)} – ${fmtTime(myBooking.slot_end)}
+              </div>
+              <div class="countdown-container" style="margin-top:12px;">
+                ${statusHtml}
+              </div>
+            </div>
+          `;
+          
+          renderEventSlotsGrid(event, myBooking, slotsBox);
+        } else if (myBooking.status === 'no_show') {
+          const slotEndDt = new Date(`${myBooking.event_date}T${myBooking.slot_end}:00`);
+          if (new Date() > slotEndDt) {
+            const slotLabel = `${myBooking.event_date} ${myBooking.slot_start}-${myBooking.slot_end}`;
+            const isNotifShowing = renderedNotificationSlots.has(slotLabel);
+            if (isNotifShowing) {
+              statusBox.innerHTML = renderMissedCard();
+            } else {
+              statusBox.innerHTML = `
+                <div class="booking-card missed-notif" style="background:#fff7ed; border:2px solid #f97316; border-radius:14px; padding:18px 20px; color:#7c2d12; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin:0 auto;">
+                  <div style="font-weight:700; font-size:1.15rem; color:#c2410c; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                    <span>⚠️ You Missed Your Viva</span>
+                  </div>
+                  <div style="font-size:14px; line-height:1.6; font-weight:500;">
+                    Slot: ${fmtTime(myBooking.slot_start)} – ${fmtTime(myBooking.slot_end)} &nbsp;·&nbsp; Status: <strong style="color:#ea580c;">Not attended</strong>
+                  </div>
+                </div>
+              `;
+            }
+            renderEventSlotsGrid(event, null, slotsBox);
+          } else {
+            statusBox.innerHTML = `
+              <div class="booking-card" style="background:#f0f9ff; border:2px solid #0284c7; border-radius:14px; padding:18px 20px; color:#0c4a6e; position:relative; max-width:600px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin:0 auto;">
+                <div style="font-weight:700; font-size:1.1rem; color:#0369a1; margin-bottom:8px;">📅 Booked Slot</div>
+                <div style="font-size:14px; font-weight:500;">
+                  Slot: ${fmtTime(myBooking.slot_start)} – ${fmtTime(myBooking.slot_end)}
+                </div>
+              </div>
+            `;
+            renderEventSlotsGrid(event, myBooking, slotsBox);
+          }
+        }
+      } else {
+        statusBox.innerHTML = `
+          <div class="booking-card none" style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:16px; color:#64748b; text-align:center; font-size:13.5px; max-width:600px; margin:0 auto;">
+            No booking yet. Select a slot below to book.
+          </div>
+        `;
+        renderEventSlotsGrid(event, null, slotsBox);
+      }
+      
+      mainSec.appendChild(eventBox);
+    }
+  } catch(e) {
+    console.error('loadEventInfo failed:', e);
+    document.getElementById('eventsSection').innerHTML =
+      `<div class="empty-state">Cannot connect to server. Is the backend running?</div>`;
+  }
+}
+
+async function renderEventSlotsGrid(event, bookedSlotForEvent, slotsContainer) {
+  try {
+    const res = await fetch(`${API}/student/events/${event.event_id}/slots?student_id=${studentId}&t=${Date.now()}`);
+    if (!res.ok) throw new Error("Fetch slots failed");
+    const slots = await res.json();
+    
+    slotsContainer.innerHTML = `
+      <div style="font-size:13px; color:var(--text-secondary); margin-bottom:10px; font-weight:600;">
+        Choose a 15-minute slot:
+      </div>
+      <div class="slots-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px;"></div>
+    `;
+    
+    const grid = slotsContainer.querySelector('.slots-grid');
+    const openCount = slots.filter(s => s.status === 'available').length;
+    
+    // Update badge open count
+    const badge = slotsContainer.closest('.event-box-container').querySelector('.event-badge');
+    if (badge && badge.classList.contains('badge-open')) {
+      badge.textContent = `${openCount} slots open`;
+    }
+    
+    if (!slots.length) {
+      grid.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px;">No slots available.</div>';
+      return;
+    }
+    
+    slots.forEach(slot => {
+      const chip = document.createElement('div');
+      
+      if (slot.is_mine) {
+        if (slot.status === 'no_show') {
+          chip.className = 'slot-chip missed';
+          chip.style.cssText = 'background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e; cursor: not-allowed; opacity: 0.95;';
+          chip.innerHTML = `<div class="slot-time" style="color: #92400e;">${fmtTime(slot.slot_start)}</div><div class="slot-label" style="color: #d97706; font-weight: 700;">Missed</div>`;
+        } else {
+          chip.className = 'slot-chip selected';
+          chip.innerHTML = `<div class="slot-time">${fmtTime(slot.slot_start)}</div><div class="slot-label">Your slot</div>`;
+        }
+      } else {
+        if (slot.status === 'disabled') {
+          chip.className = 'slot-chip disabled';
+          chip.style.cssText = 'background: #fef2f2; border: 1.5px solid #fca5a5; color: #b91c1c; cursor: not-allowed; opacity: 0.85;';
+          chip.innerHTML = `<div class="slot-time" style="color: #b91c1c;">${fmtTime(slot.slot_start)}</div><div class="slot-label" style="color: #dc2626; font-weight: 700;">Not available</div>`;
+        } else {
+          chip.className = 'slot-chip available';
+          chip.innerHTML = `<div class="slot-time">${fmtTime(slot.slot_start)}</div><div class="slot-label">Available</div>`;
+          
+          if (!bookedSlotForEvent) {
+            chip.onclick = () => showBookingConfirm(event, slot, chip);
+          }
+        }
+      }
+      grid.appendChild(chip);
+    });
+  } catch(e) {
+    slotsContainer.innerHTML = '<div style="font-size:13px;color:var(--text-danger);padding:8px;">Failed to load slots.</div>';
+  }
+}
+
+function showBookingConfirm(event, slot, chipEl) {
+  cancelBookingConfirm();
+
+  chipEl.className = 'slot-chip selected';
+  chipEl.querySelector('.slot-label').textContent = 'Selected';
+  chipEl.onclick = null;
+
+  const grid = chipEl.closest('.slots-grid');
+  const body = grid.parentElement;
+
+  const bar = document.createElement('div');
+  bar.id = 'booking-confirm-card';
+  bar.innerHTML = `
+    <span class="confirm-text">📅 Book <strong>${fmtTime(slot.slot_start)} – ${fmtTime(slot.slot_end)}</strong> on ${fmtDate(event.event_date)}?</span>
+    <div class="confirm-btns">
+      <button class="btn-cancel-confirm" onclick="cancelBookingConfirm()">Cancel</button>
+      <button class="btn-confirm-book"   onclick="confirmBooking('${event.event_id}')">Confirm Booking</button>
+    </div>
+  `;
+  body.appendChild(bar);
+  
+  _pendingBooking = { event, slot, chipEl };
+}
+
+function cancelBookingConfirm() {
+  const bar = document.getElementById('booking-confirm-card');
+  if (bar) bar.remove();
+  if (_pendingBooking) {
+    loadEventInfo();
+    _pendingBooking = null;
+  }
+}
+
+async function confirmBooking(eventId) {
+  if (!_pendingBooking) return;
+  const { slot } = _pendingBooking;
+  const bar = document.getElementById('booking-confirm-card');
+  if (bar) bar.remove();
+  _pendingBooking = null;
+
+  try {
+    const res = await fetch(`${API}/student/events/${eventId}/book`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student_id: studentId,
+        slot_id: slot.slot_id
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast('❌ ' + (data.detail || 'Booking failed.'), 'error', 6000);
+      loadEventInfo();
+      return;
+    }
+
+    toast(`✅ Slot booked successfully!`, 'success', 6000);
+    await loadEventInfo();
+  } catch(e) {
+    toast('❌ Network error during booking.', 'error', 5000);
+    loadEventInfo();
+  }
+}
+
+function updateEventBadge() {
+  const badge = document.querySelector('.event-badge');
+  if (badge) {
+    badge.className = 'event-badge badge-booked';
+    badge.textContent = 'Booked';
+  }
+}
+
+// ── Booking card with countdown ──────────────────────────────
+function renderBookingCard() {
+  if (!bookedSlot) return;
+  const sec = document.getElementById('bookingSection');
+  sec.innerHTML = '';
+
+  const card = document.createElement('div');
+  card.className = 'booking-card active card';
+  card.id = 'active-booking-card';
+  
+  // Rule 5: Block slot cancel/rebook, hide Change Slot button
+  card.innerHTML = `
+    <div class="booking-time">${fmtTime(bookedSlot.start)} – ${fmtTime(bookedSlot.end)}</div>
+    <div class="booking-meta">${eventInfo ? eventInfo.title : ''} &nbsp;·&nbsp; ${fmtDate(bookedSlot.slotDate)}</div>
+    <div id="booking-status" style="margin-top:12px;font-size:13px;color:#64748b">
+      Checking slot time…
+    </div>
+  `;
+  sec.appendChild(card);
+
+  startCountdown();
+}
+
+// ── Countdown & join button ──────────────────────────────────
+function startCountdown() {
+  if (countdownInt) clearInterval(countdownInt);
+  tickBookingStatus();
+  countdownInt = setInterval(tickBookingStatus, 1000);
+}
+
+function tickBookingStatus() {
+  document.querySelectorAll('.countdown-display').forEach(el => {
+    const openDt = new Date(el.dataset.open);
+    const closeDt = new Date(el.dataset.close);
+    const now = new Date();
+    
+    if (now > closeDt) {
+      el.parentElement.innerHTML = `<span style="color:#dc2626;font-weight:600;">⚠️ Slot time has passed.</span>`;
+      loadEventInfo();
+      return;
+    }
+    
+    if (now >= openDt && now <= closeDt) {
+      const eventId = el.dataset.eventId;
+      const uploadId = el.dataset.uploadId;
+      const slotId = el.dataset.slotId;
+      el.parentElement.innerHTML = `
+        <button class="btn btn-primary join-btn" id="joinVivaBtn_${eventId}" onclick="startViva('${uploadId}', '${slotId}', '${eventId}')" style="margin-top:0;">
+          🎉 Join Viva Now
+        </button>
+        <div style="margin-top:8px;font-size:12px;color:#64748b;">Your slot is open — click to start!</div>
+      `;
+      return;
+    }
+    
+    const diffMs = openDt - now;
+    const totalSecs = Math.floor(diffMs / 1000);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    
+    let display;
+    if (hrs > 0) {
+      display = `${hrs}h ${String(mins).padStart(2,'0')}m`;
+    } else {
+      display = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    }
+    
+    const urgentMsg = diffMs < 5 * 60 * 1000
+      ? '⚡ Almost time — stay on this page!'
+      : `The "Join" button will activate 2 minutes before your slot.`;
+      
+    el.innerHTML = `
+      <span style="font-size:1.1rem;font-weight:700;color:#1e40af;font-variant-numeric:tabular-nums;">⏱ ${display}</span>
+      <br><span style="font-size:12px;color:#64748b;margin-top:4px;display:block;">${urgentMsg}<br><strong>Your slot:</strong> ${fmtTime(el.dataset.start)} – ${fmtTime(el.dataset.end)} on ${fmtDate(el.dataset.date)}</span>
+    `;
+  });
+}
+
+// ── Join viva ─────────────────────────────────────────────────
+async function startViva(uploadId, slotId, eventId) {
+  const btn = document.getElementById(`joinVivaBtn_${eventId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+
+  try {
+    const res  = await fetch(`${API}/student/viva/join`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({roll_number: roll, student_name: name, event_id: eventId})
+    });
+    const data = await res.json();
+
+    if (res.ok && data.status === 'ready') {
+      sessionStorage.setItem('sub_agent_id',  data.sub_agent_id || '');
+      sessionStorage.setItem('upload_id',     data.upload_id    || '');
+      sessionStorage.setItem('event_id_orch', data.event_id     || '');
+      if (btn) btn.textContent = 'Starting your viva…';
+      setTimeout(() => {
+        window.location.href =
+          `viva.html?student_id=${data.student_id}` +
+          `&upload_id=${data.upload_id}` +
+          `&event_id=${data.event_id}` +
+          `&slot_id=${slotId}` +
+          `&sub_agent_id=${data.sub_agent_id}` +
+          `&name=${encodeURIComponent(name)}`;
+      }, 800);
+      return;
+    }
+
+    if (res.ok && data.status === 'active') {
+      if (btn) btn.textContent = 'Resuming…';
+      setTimeout(() => {
+        window.location.href =
+          `viva.html?student_id=${data.student_id}` +
+          `&session_id=${data.session_id}` +
+          `&name=${encodeURIComponent(name)}`;
+      }, 600);
+      return;
+    }
+
+    if (res.status === 409) {
+      toast('⚠️ All viva slots are currently full. Try again in a moment.', 'error', 8000);
+      if (btn) { btn.disabled = false; btn.textContent = 'Join Viva'; }
+      return;
+    }
+
+    toast('❌ ' + (data.detail || 'Could not join. Please try again.'), 'error', 6000);
+    if (btn) { btn.disabled = false; btn.textContent = 'Join Viva'; }
+
+  } catch(e) {
+    toast('❌ Cannot connect to server.', 'error', 5000);
+    if (btn) { btn.disabled = false; btn.textContent = 'Join Viva'; }
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+async function initDashboard() {
+  await loadNotifications();
+  await loadEventInfo();
+}
+initDashboard();
+// Poll booking status every 10 seconds to auto-expire
+setInterval(loadEventInfo, 10000);
+if (notificationInterval) clearInterval(notificationInterval);
+notificationInterval = setInterval(() => {
+  loadNotifications().then(() => loadEventInfo());
+}, 120000);
+if (countdownInterval) clearInterval(countdownInterval);
+countdownInterval = setInterval(() => {
+  tickNotifications();
+  tickBookingStatus();
+}, 1000);
+
+// Refresh every 60s to re-check join eligibility
+setInterval(() => {
+  tickBookingStatus();
+}, 60000);
+</script>
+</body>
+</html>

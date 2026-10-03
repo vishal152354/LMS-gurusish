@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Upload Content</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=7">
+<style>
+body { background: var(--bg); padding: 24px; }
+.page-header {
+  max-width: 600px; margin: 0 auto 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+.back-btn {
+  background: none; border: none; cursor: pointer; font-size: 20px;
+  color: var(--text-secondary); padding: 4px;
+  display: flex; align-items: center; transition: var(--transition);
+}
+.back-btn:hover { color: var(--primary); }
+.upload-wrap { max-width: 600px; margin: 0 auto; }
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: 12px;
+  padding: 48px 24px; text-align: center; cursor: pointer;
+  transition: var(--transition); background: var(--surface);
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--primary); background: var(--primary-light);
+}
+.drop-icon { font-size: 48px; margin-bottom: 16px; }
+.drop-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+.drop-sub   { color: var(--text-secondary); font-size: 14px; }
+.drop-meta  { color: var(--text-muted); font-size: 12px; margin-top: 10px; }
+.file-selected {
+  display: none; background: var(--primary-light);
+  border: 2px solid var(--primary); border-radius: 12px;
+  padding: 16px 20px; margin-top: 12px;
+  display: none; align-items: center; gap: 14px;
+}
+.file-selected.show { display: flex; }
+.file-selected-icon { font-size: 28px; }
+.file-selected-info { flex: 1; }
+.file-selected-name { font-weight: 600; font-size: 14px; }
+.file-selected-size { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.remove-file { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--text-muted); }
+.remove-file:hover { color: var(--danger); }
+.terms-text { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+#uploadBtn { display: none; margin-top: 16px; }
+#uploadBtn.show { display: flex; }
+#errorBox { display: none; margin-bottom: 14px; }
+
+/* existing uploads panel */
+.existing-section { max-width: 600px; margin: 0 auto 20px; }
+.existing-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text-primary); }
+.existing-divider {
+  max-width: 600px; margin: 20px auto;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 13px; color: var(--text-muted);
+}
+.existing-divider::before, .existing-divider::after {
+  content:''; flex:1; height:1px; background:var(--border);
+}
+.upload-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; transition: var(--transition);
+}
+.upload-item:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,0.1); }
+.upload-item-info { flex:1; min-width:0; }
+.upload-item-name { font-weight: 600; font-size: 14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.upload-item-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.upload-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="page-header fade-up">
+  <button class="back-btn" onclick="history.back()">←</button>
+  <h2 id="pageTitle">Upload Content</h2>
+</div>
+
+<!-- Existing uploads — shown when student already has content -->
+<div class="existing-section fade-up" id="existingSection" style="display:none;">
+  <h3>📚 Your Existing Content</h3>
+  <div id="existingList"></div>
+</div>
+
+<div class="existing-divider fade-up" id="orDivider" style="display:none;">or upload new content</div>
+
+<div class="upload-wrap">
+  <div class="card fade-up">
+    <div class="card-body">
+      <div class="info-box info-box-blue" style="margin-bottom:20px;">
+        ℹ️ Upload your report, assignment, or project. Our AI will build a knowledge base and prepare personalised viva questions from your own content.
+      </div>
+
+      <div id="errorBox" class="info-box info-box-red"></div>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">📁</div>
+        <div class="drop-title">Drag and drop your file here</div>
+        <div class="drop-sub">or <span style="color:var(--primary);font-weight:600;">click to browse</span></div>
+        <div class="drop-meta">Supported: PDF, TXT, DOCX &nbsp;·&nbsp; Maximum size: 20 MB</div>
+        <input type="file" id="fileInput" accept=".pdf,.txt,.docx" style="display:none">
+      </div>
+
+      <div class="file-selected" id="fileSelectedBox">
+        <div class="file-selected-icon" id="fileIcon">📄</div>
+        <div class="file-selected-info">
+          <div class="file-selected-name" id="fileName">report.pdf</div>
+          <div class="file-selected-size" id="fileSize">2.4 MB</div>
+        </div>
+        <button class="remove-file" onclick="clearFile()">✕</button>
+      </div>
+
+      <button class="btn btn-primary btn-full show" id="uploadBtn" onclick="startUpload()">
+        Upload and Build Knowledge Base
+      </button>
+
+      <p class="terms-text">🔒 Your content will be processed locally and securely</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/upload.js?v=7"></script>
+<script>
+// Load existing uploads for this student on page open
+(async function loadExisting() {
+  const params   = new URLSearchParams(location.search);
+  const sid      = params.get('student_id') || sessionStorage.getItem('student_id');
+  if (!sid) return;
+
+  try {
+    const res  = await fetch(`/student/uploads/${sid}`);
+    if (!res.ok) return;
+    const list = await res.json();
+    if (!list || !list.length) return;
+
+    const section  = document.getElementById('existingSection');
+    const container= document.getElementById('existingList');
+    const divider  = document.getElementById('orDivider');
+    const title    = document.getElementById('pageTitle');
+
+    title.textContent = 'My Content';
+    section.style.display = 'block';
+    divider.style.display = 'flex';
+
+    list.forEach(u => {
+      const done      = u.viva_completed;
+      const ready     = u.okf_ready;
+      const statusIcon= done ? '✅' : ready ? '📖' : '⏳';
+      const statusTxt = done
+        ? `Viva done — ${u.total_marks ?? '?'}/30 (${u.grade ?? '?'})`
+        : ready ? 'Knowledge base ready — take viva'
+        : 'Still processing…';
+      const date = new Date(u.uploaded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+
+      const item = document.createElement('div');
+      item.className = 'upload-item';
+      item.innerHTML = `
+        <div style="font-size:28px;flex-shrink:0;">📄</div>
+        <div class="upload-item-info">
+          <div class="upload-item-name">${u.filename}</div>
+          <div class="upload-item-meta">${statusIcon} ${statusTxt} &nbsp;·&nbsp; ${date}</div>
+        </div>
+        <div class="upload-item-actions">
+          ${done ? `<button class="btn btn-sm btn-secondary" onclick="viewResult('${sid}','${u.upload_id}')">View Result</button>` : ''}
+          ${ready ? `<button class="btn btn-sm btn-primary" onclick="startViva('${sid}','${u.upload_id}','${u.filename}')">Start Viva ▶</button>` : ''}
+        </div>`;
+      container.appendChild(item);
+    });
+  } catch(e) { /* silently skip */ }
+})();
+
+function startViva(sid, uploadId, filename) {
+  sessionStorage.setItem('student_id',   sid);
+  sessionStorage.setItem('upload_id',    uploadId);
+  sessionStorage.setItem('filename',     filename);
+  sessionStorage.setItem('student_name', sessionStorage.getItem('student_name') || sid);
+  sessionStorage.setItem('roll_number',  sessionStorage.getItem('roll_number')  || sid);
+  window.location.href = `viva.html?student_id=${sid}&upload_id=${uploadId}`;
+}
+
+function viewResult(sid, uploadId) {
+  window.location.href = `complete.html?student_id=${sid}&upload_id=${uploadId}`;
+}
+</script>
+</body>
+</html>

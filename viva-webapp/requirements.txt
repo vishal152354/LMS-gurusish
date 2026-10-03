@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+pypdf
+python-docx
+faster-whisper
+edge-tts
+aiofiles
+httpx
+aiohttp
+websockets
+networkx
+pydantic
+openpyxl
+python-dotenv

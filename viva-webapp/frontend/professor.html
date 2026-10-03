@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pariksha — Professor Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=20260706_v2">
+<style>
+/* ── Layout ───────────────────────────────────────────────── */
+body { background:linear-gradient(135deg,#F0F4FF 0%,#F8FAFC 100%); min-height:100vh; padding:0; }
+.top-bar {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  color: #fff;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 20px rgba(30, 58, 138, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.top-bar .h1 {
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+.top-bar .meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+.top-bar .logout-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+.top-bar .logout-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.dash-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.tabs {
+  display: inline-flex;
+  background: rgba(15, 23, 42, 0.05);
+  padding: 5px;
+  border-radius: 10px;
+  gap: 4px;
+  margin-bottom: 28px;
+  border-bottom: none;
+}
+.tab-btn {
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #64748b;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tab-btn:hover:not(.active) {
+  background: rgba(15, 23, 42, 0.04);
+  color: #1e293b;
+}
+.tab-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* ── Upload zone ──────────────────────────────────────────── */
+.upload-zone {
+  border:2px dashed var(--border); border-radius:14px; padding:36px;
+  text-align:center; cursor:pointer; transition:.15s; background:var(--bg);
+}
+.upload-zone:hover, .upload-zone.dragover { border-color:#2563eb; background:#eff6ff; }
+.upload-zone input { display:none; }
+.upload-zone .uz-icon { font-size:2.5rem; }
+.upload-zone .uz-label { font-size:15px; font-weight:600; margin:8px 0 4px; color:var(--text); }
+.upload-zone .uz-hint  { font-size:13px; color:var(--text-muted); }
+
+.content-list { margin-top:20px; }
+.content-item {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; border-radius:10px; background:var(--bg);
+  border:1px solid var(--border); margin-bottom:10px;
+}
+.content-item .ci-icon { font-size:1.5rem; }
+.content-item .ci-name { font-weight:600; font-size:14px; flex:1; }
+.content-item .ci-sub  { font-size:12px; color:var(--text-muted); }
+.ci-badge { padding:3px 10px; border-radius:50px; font-size:12px; font-weight:600; white-space:nowrap; }
+.ci-badge.ready   { background:#ecfdf5; color:#065f46; }
+.ci-badge.processing { background:#fffbeb; color:#92400e; }
+.ci-badge.error   { background:#fef2f2; color:#991b1b; }
+
+/* ── Event form ───────────────────────────────────────────── */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){ .form-grid { grid-template-columns:1fr; } }
+.field label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-secondary); }
+.field select, .field input { width:100%; }
+.hint-text { font-size:12px; color:var(--text-muted); margin-top:4px; }
+
+/* ── Event cards ──────────────────────────────────────────── */
+.event-card { background:var(--bg); border:1px solid var(--border); border-radius:12px; margin-bottom:14px; overflow:hidden; }
+.event-header { padding:16px 18px; display:flex; align-items:flex-start; justify-content:space-between; cursor:pointer; }
+.event-header:hover { background:#f8fafc; }
+.event-title  { font-weight:700; font-size:15px; }
+.event-meta   { font-size:12px; color:var(--text-muted); margin-top:3px; }
+.event-stats  { display:flex; gap:12px; margin-top:4px; }
+.stat-chip { font-size:12px; padding:2px 8px; border-radius:50px; font-weight:600; }
+.stat-total    { background:#f1f5f9; color:#475569; }
+.stat-booked   { background:#eff6ff; color:#1e40af; }
+.stat-done     { background:#ecfdf5; color:#065f46; }
+.event-body { padding:0 18px 16px; display:none; }
+.event-body.open { display:block; }
+.event-actions { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+
+/* ── Slot grid ────────────────────────────────────────────── */
+.slots-grid-sm { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.slot-chip-sm {
+  padding:7px 12px; border-radius:8px; font-size:12px; font-weight:600;
+  border:1.5px solid var(--border);
+}
+.slot-chip-sm.available { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+.slot-chip-sm.booked    { background:#eff6ff; color:#1e40af; border-color:#93c5fd; }
+.slot-chip-sm.in_progress { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.slot-chip-sm.completed { background:#ecfdf5; color:#065f46; border-color:#6ee7b7; }
+.slot-chip-sm .sc-name  { font-weight:400; font-size:11px; opacity:.75; display:block; }
+
+/* ── Roster table ─────────────────────────────────────────── */
+.roster-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+.roster-table th { text-align:left; padding:8px 12px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); }
+.roster-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
+.roster-table tr:last-child td { border:none; }
+
+/* ── Results tab ──────────────────────────────────────────── */
+.results-table { width:100%; border-collapse:collapse; font-size:13px; }
+.results-table th { text-align:left; padding:9px 12px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); background:#f8fafc; }
+.results-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
+.grade-pill { display:inline-block; padding:2px 9px; border-radius:50px; font-weight:700; font-size:12px; }
+.gp-A { background:#ecfdf5; color:#065f46; }
+.gp-B { background:#eff6ff; color:#1e40af; }
+.gp-C { background:#fffbeb; color:#92400e; }
+.gp-D,.gp-F { background:#fef2f2; color:#991b1b; }
+
+.empty-state { text-align:center; color:var(--text-muted); padding:32px; font-size:14px; }
+.spinner-sm { display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Professor Dashboard Premium Design System Overrides ── */
+
+.ci-card-premium {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+  margin-bottom: 10px !important;
+  transition: all 0.2s ease !important;
+}
+.ci-card-premium:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08) !important;
+}
+
+.ci-badge-premium {
+  display: inline-flex !important;
+  align-items: center !important;
+  border-radius: 50px !important;
+  font-size: 0.75rem !important;
+  padding: 2px 8px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+.ci-badge-premium.ready {
+  background: #dcfce7 !important;
+  color: #16a34a !important;
+}
+.ci-badge-premium.processing {
+  background: #fffbeb !important;
+  color: #d97706 !important;
+}
+.ci-badge-premium.error {
+  background: #fef2f2 !important;
+  color: #ef4444 !important;
+}
+
+.ci-action-btn {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+}
+.ci-action-btn:hover {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+}
+.ci-action-btn.delete:hover {
+  background: #fef2f2 !important;
+  color: #ef4444 !important;
+}
+
+.form-helper-text {
+  font-size: 0.75rem !important;
+  color: #94a3b8 !important;
+  margin-top: 4px !important;
+  font-weight: 400 !important;
+  display: block !important;
+}
+
+.form-field-label {
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+
+.form-input-premium {
+  width: 100% !important;
+  height: 40px !important;
+  padding: 0 12px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 0.9rem !important;
+  color: #1e293b !important;
+  background: #ffffff !important;
+  transition: all 0.2s ease !important;
+  outline: none !important;
+}
+.form-input-premium:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+}
+
+.preview-card-premium {
+  background: #f0f7ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+  margin-top: 16px !important;
+}
+
+.btn-create-event-premium {
+  background: #2563eb !important;
+  color: white !important;
+  border-radius: 10px !important;
+  padding: 10px 28px !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-decoration: none !important;
+}
+.btn-create-event-premium:hover {
+  background: #1d4ed8 !important;
+}
+
+.stat-row-premium {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  margin-bottom: 24px !important;
+}
+.stat-card-premium {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 16px 20px !important;
+  text-align: center !important;
+  flex: 1 !important;
+  min-width: 100px !important;
+  transition: all 0.2s ease !important;
+}
+.stat-card-premium:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+.stat-card-premium .num {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin-bottom: 4px !important;
+}
+.stat-card-premium .label {
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #94a3b8 !important;
+}
+
+.filter-bar-premium {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-bottom: 20px !important;
+}
+
+.filter-tab-premium {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: none !important;
+  border-radius: 20px !important;
+  padding: 6px 16px !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.filter-tab-premium:hover {
+  background: #e2e8f0 !important;
+  color: #475569 !important;
+}
+.filter-tab-premium.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.table-card-premium {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.07) !important;
+  overflow-x: auto !important;
+  margin-bottom: 24px !important;
+}
+
+.table-premium {
+  width: 100% !important;
+  min-width: 900px !important;
+  border-collapse: collapse !important;
+  text-align: left !important;
+}
+.table-premium th {
+  background: #f8fafc !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #64748b !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.table-premium td {
+  padding: 12px 14px !important;
+  font-size: 0.875rem !important;
+  border-top: 1px solid #f1f5f9 !important;
+  color: #334155 !important;
+}
+.table-premium tbody tr:nth-child(even) {
+  background: #fafafa !important;
+}
+.table-premium td.numeric {
+  text-align: center !important;
+}
+.table-premium td.name {
+  font-weight: 600 !important;
+  color: #1e293b !important;
+}
+
+.status-badge-premium {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+  padding: 3px 10px !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+}
+.status-badge-premium.no-show {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+}
+.status-badge-premium.not-booked {
+  background: #fef3c7 !important;
+  color: #d97706 !important;
+}
+.status-badge-premium.completed {
+  background: #dcfce7 !important;
+  color: #16a34a !important;
+}
+.status-badge-premium.pending {
+  background: #dbeafe !important;
+  color: #2563eb !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DARK GLASSMORPHISM OVERRIDES
+   ══════════════════════════════════════════════════════════════ */
+body {
+  background: #16181D !important;
+  background-image: linear-gradient(160deg,#121316 0%,#1E2025 100%) !important;
+  background-attachment: fixed !important;
+  color: var(--text) !important;
+}
+h1,h2,h3,.h1,.top-bar .h1,.serif { font-family: var(--font-serif) !important; }
+
+/* Top bar */
+.top-bar {
+  background: rgba(255,255,255,0.05) !important;
+  backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35) !important;
+  color: var(--text) !important;
+}
+.top-bar .meta { color: var(--text-secondary) !important; }
+.top-bar .logout-btn {
+  background: rgba(255,255,255,0.06) !important; border: 1px solid var(--border-strong) !important; color: var(--text) !important;
+}
+.top-bar .logout-btn:hover { background: rgba(255,255,255,0.12) !important; }
+
+/* Tabs */
+.tabs { background: rgba(255,255,255,0.05) !important; border:1px solid var(--border) !important; }
+.tab-btn { color: var(--text-secondary) !important; }
+.tab-btn:hover:not(.active) { background: rgba(255,255,255,0.06) !important; color: var(--text) !important; }
+.tab-btn.active { background: rgba(255,255,255,0.12) !important; color: var(--text) !important; box-shadow:none !important; }
+
+/* Generic cards / panels (glass) */
+.card, .panel, .section-card, .upload-zone, .content-item, .event-card,
+.ci-card-premium, .preview-card-premium, .stat-card-premium, .table-card-premium {
+  background: var(--surface) !important;
+  backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-card) !important;
+  box-shadow: var(--glow) !important;
+  color: var(--text) !important;
+}
+.upload-zone { border: 2px dashed var(--border-strong) !important; }
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--primary) !important; background: rgba(255,255,255,0.09) !important; }
+.upload-zone .uz-label, .event-title { color: var(--text) !important; }
+.content-item .ci-name, .ci-card-premium .ci-name { color: #7DD3FC !important; }  /* uploaded PDF name — light blue */
+.upload-zone .uz-hint, .content-item .ci-sub, .event-meta, .hint-text, .form-helper-text,
+.field label, .form-field-label, .stat-card-premium .label { color: var(--text-secondary) !important; }
+.event-header:hover { background: rgba(255,255,255,0.04) !important; }
+.ci-card-premium:hover, .stat-card-premium:hover { border-color: var(--border-strong) !important; box-shadow: var(--glow) !important; }
+
+/* Inputs */
+.field select, .field input, .form-input-premium, input, select, textarea {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid var(--border-strong) !important;
+  color: var(--text) !important;
+}
+.form-input-premium:focus, .field input:focus, .field select:focus {
+  border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(255,255,255,0.10) !important;
+}
+option { color: #16181D; }
+.form-input-premium[readonly] { background: rgba(255,255,255,0.03) !important; color: var(--text-secondary) !important; }
+
+/* Buttons */
+.btn-create-event-premium { background: var(--primary) !important; color: #16181D !important; }
+.btn-create-event-premium:hover { background: #FFFFFF !important; }
+.ci-action-btn { color: var(--text-secondary) !important; }
+.ci-action-btn:hover { background: rgba(255,255,255,0.10) !important; color: var(--text) !important; }
+.ci-action-btn.delete:hover { background: rgba(248,113,113,0.15) !important; color: var(--danger) !important; }
+.filter-tab-premium { background: rgba(255,255,255,0.06) !important; color: var(--text-secondary) !important; }
+.filter-tab-premium:hover { background: rgba(255,255,255,0.12) !important; color: var(--text) !important; }
+.filter-tab-premium.active { background: var(--primary) !important; color: #16181D !important; }
+
+/* Tables */
+.roster-table th, .results-table th, .table-premium th {
+  color: var(--text-secondary) !important; background: rgba(255,255,255,0.03) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.roster-table td, .results-table td, .table-premium td {
+  color: var(--text) !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; border-top: none !important;
+}
+.table-premium tbody tr:nth-child(even) { background: rgba(255,255,255,0.02) !important; }
+.table-premium td.name { color: var(--text) !important; }
+
+/* Badges / pills / statuses — translucent tints */
+.ci-badge.ready, .ci-badge-premium.ready, .status-badge-premium.completed, .stat-done, .slot-chip-sm.available, .slot-chip-sm.completed, .gp-A {
+  background: rgba(52,211,153,0.16) !important; color: #6EE7B7 !important; border-color: rgba(52,211,153,0.3) !important;
+}
+.ci-badge.processing, .ci-badge-premium.processing, .status-badge-premium.pending, .status-badge-premium.not-booked, .slot-chip-sm.in_progress, .stat-booked, .slot-chip-sm.booked, .gp-B, .gp-C {
+  background: rgba(251,191,36,0.16) !important; color: #FCD34D !important; border-color: rgba(251,191,36,0.3) !important;
+}
+.ci-badge.error, .ci-badge-premium.error, .status-badge-premium.no-show, .gp-D, .gp-F {
+  background: rgba(248,113,113,0.16) !important; color: #FCA5A5 !important; border-color: rgba(248,113,113,0.3) !important;
+}
+.stat-total, .stat-chip { background: rgba(255,255,255,0.08) !important; color: var(--text-secondary) !important; }
+.slot-chip-sm { border-color: var(--border-strong) !important; }
+.grade-pill.gp-A { background: rgba(52,211,153,0.16) !important; color:#6EE7B7 !important; }
+
+/* Misc */
+.empty-state { color: var(--text-muted) !important; }
+.preview-card-premium { background: rgba(255,255,255,0.05) !important; border-color: var(--border) !important; }
+#createEventError { background: rgba(248,113,113,0.12) !important; border:1px solid rgba(248,113,113,0.3) !important; color:#FCA5A5 !important; }
+
+/* ── Results: per-student answer chart ── */
+.rs-name-btn { background:none; border:none; padding:0; font:inherit; font-weight:600; color:#7DD3FC; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.rs-name-btn:hover { text-decoration:underline; text-underline-offset:3px; }
+.rs-name-btn:focus-visible { outline:2px solid #7DD3FC; outline-offset:3px; border-radius:4px; }
+.rs-caret { font-size:11px; opacity:.7; transition:transform .2s ease; }
+.rs-open .rs-caret { transform:rotate(180deg); }
+.table-premium tr.rs-open td { background: rgba(125,211,252,0.05) !important; }
+.table-premium tr.rs-detail td { padding:0 !important; background: rgba(255,255,255,0.015) !important; }
+.rs-panel { display:grid; grid-template-columns: minmax(260px, 340px) 1fr; gap:28px; padding:22px 24px; animation: rsIn .22s ease; }
+@keyframes rsIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+.rs-chart { display:flex; align-items:center; gap:20px; }
+.rs-donut { position:relative; width:150px; height:150px; flex-shrink:0; }
+.rs-donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.rs-pct { font-size:1.6rem; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+.rs-sub { font-size:11.5px; color:var(--text-secondary); }
+.rs-legend { display:flex; flex-direction:column; gap:10px; min-width:130px; }
+.rs-legend-row { display:flex; align-items:center; gap:10px; font-size:13.5px; }
+.rs-swatch { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+.rs-legend-label { color:var(--text-secondary); flex:1; }
+.rs-legend-val { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+.rs-marks { border-top:1px solid var(--border); padding-top:10px; margin-top:2px; }
+.rs-answers { min-width:0; max-height:320px; overflow-y:auto; }
+.rs-qlist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.rs-qlist li { display:flex; gap:12px; align-items:flex-start; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); }
+.rs-qmark { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+.rs-qlist li.ok  .rs-qmark { background:rgba(52,211,153,0.16); color:#6EE7B7; }
+.rs-qlist li.bad .rs-qmark { background:rgba(248,113,113,0.16); color:#FCA5A5; }
+.rs-qtext { font-size:13.5px; color:var(--text); line-height:1.45; }
+.rs-qans { font-size:12.5px; color:var(--text-secondary); margin-top:3px; line-height:1.5; }
+.rs-right { color:#6EE7B7; font-weight:600; }
+.rs-wrong { color:#FCA5A5; font-weight:600; }
+.rs-empty { font-size:13px; color:var(--text-secondary); padding:8px 0; }
+@media (max-width: 760px) {
+  .rs-panel { grid-template-columns:1fr; gap:18px; padding:18px 16px; }
+  .rs-chart { justify-content:center; }
+}
+@media (prefers-reduced-motion: reduce) { .rs-panel { animation:none; } .rs-caret { transition:none; } }
+
+/* ── Event creation: question-generation progress ── */
+.gen-progress { margin-top:18px; padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,0.03); }
+.gen-progress[hidden] { display:none; }
+.gen-progress-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:13.5px; color:var(--text); margin-bottom:10px; }
+.gen-progress-pct { font-weight:700; font-variant-numeric:tabular-nums; color:var(--text-secondary); }
+.gen-progress-track { height:8px; border-radius:8px; background:rgba(255,255,255,0.08); overflow:hidden; }
+.gen-progress-fill { height:100%; width:0; border-radius:8px; background:linear-gradient(90deg,#38BDF8,#7DD3FC); transition:width .35s ease; position:relative; overflow:hidden; }
+.gen-progress-fill::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent); transform:translateX(-100%); animation:genShimmer 1.6s ease-in-out infinite; }
+@keyframes genShimmer { to { transform:translateX(100%); } }
+.gen-progress.done .gen-progress-fill { background:#34D399; }
+.gen-progress.done .gen-progress-fill::after, .gen-progress.failed .gen-progress-fill::after { animation:none; display:none; }
+.gen-progress.failed .gen-progress-fill { background:#F87171; }
+.gen-progress.failed .gen-progress-head { color:#FCA5A5; }
+.gen-progress-steps { display:flex; justify-content:space-between; margin-top:10px; font-size:11.5px; color:var(--text-secondary); }
+.gen-progress-steps span { opacity:.55; transition:opacity .2s, color .2s; }
+.gen-progress-steps span.active { opacity:1; color:#7DD3FC; font-weight:600; }
+.gen-progress-steps span.complete { opacity:1; }
+.gen-progress-steps span.complete::before { content:"✓ "; color:#6EE7B7; }
+@media (prefers-reduced-motion: reduce) { .gen-progress-fill { transition:none; } .gen-progress-fill::after { animation:none; } }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <div>
+    <div class="h1" style="font-size:1.15rem;font-weight:700;">Pariksha — Professor Dashboard</div>
+    <div class="meta" id="profMeta">Loading…</div>
+  </div>
+  <button class="logout-btn" onclick="logout()">Sign Out</button>
+</div>
+
+<div class="dash-content">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('content',this)">Content</button>
+    <button class="tab-btn"        onclick="switchTab('events',this)">Events</button>
+    <button class="tab-btn"        onclick="switchTab('roster',this)">Roster</button>
+    <button class="tab-btn"        onclick="switchTab('results',this)">Results</button>
+    <button class="tab-btn"        onclick="switchTab('monitor',this);startMonitor()">Live</button>
+  </div>
+
+  <!-- ══ TAB: CONTENT ════════════════════════════════════════ -->
+  <div id="tab-content" class="tab-panel active">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;">Upload Viva Content</h2>
+
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="fileInput" accept=".pdf,.txt,.md,.docx" onchange="uploadFile(this.files[0])">
+      <div class="uz-icon"></div>
+      <div class="uz-label">Drop file here or click to browse</div>
+      <div class="uz-hint">PDF, TXT, Markdown — the system will build a knowledge graph automatically</div>
+    </div>
+
+    <div id="uploadProgress" style="display:none;margin-top:16px;">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="uploadProgressBar" style="width:0%"></div>
+      </div>
+      <div id="uploadProgressLabel" style="font-size:13px;color:var(--text-secondary);margin-top:6px;"></div>
+    </div>
+
+    <div class="content-list" id="contentList">
+      <div class="empty-state"><span class="spinner-sm"></span> Loading content…</div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: EVENTS ═════════════════════════════════════════ -->
+  <div id="tab-events" class="tab-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;">Create a Viva Event</h2>
+
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-body" style="padding: 24px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="field" style="grid-column: 1 / -1;">
+            <label class="form-field-label">Event Title</label>
+            <input type="text" class="form-input-premium" id="evTitle" placeholder="e.g. Machine Learning Mid-Term Viva">
+          </div>
+        </div>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="field">
+            <label class="form-field-label">Knowledge Base</label>
+            <select class="form-input-premium" id="evUpload">
+              <option value="">— select content —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="form-field-label">Number of Questions</label>
+            <input type="number" class="form-input-premium" id="evNumQuestions" value="10" min="1" max="50" placeholder="10">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="field">
+            <label class="form-field-label">Marks per Question</label>
+            <input type="number" class="form-input-premium" id="evMarksPerQ" value="1" min="1" max="100" placeholder="1">
+          </div>
+          <div class="field">
+            <label class="form-field-label">Total Marks</label>
+            <input type="text" class="form-input-premium" id="evTotalMarks" value="10" readonly style="background:var(--surface,#f8f8f8);">
+            <div class="form-helper-text">Questions × marks each</div>
+          </div>
+        </div>
+
+        <div class="form-helper-text" style="margin-bottom:8px;">
+          The test is always available to rostered students, each attempt once.
+          Questions are generated now, so this may take up to a minute.
+        </div>
+
+        <div id="genProgress" class="gen-progress" hidden>
+          <div class="gen-progress-head">
+            <span id="genProgressLabel">Starting…</span>
+            <span id="genProgressPct" class="gen-progress-pct">0%</span>
+          </div>
+          <div class="gen-progress-track" role="progressbar" aria-label="Question generation progress"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="genProgressTrack">
+            <div class="gen-progress-fill" id="genProgressFill"></div>
+          </div>
+          <div class="gen-progress-steps" id="genProgressSteps">
+            <span data-step="reading">Read content</span>
+            <span data-step="generating">Write questions</span>
+            <span data-step="checking">Check</span>
+            <span data-step="saving">Save</span>
+          </div>
+        </div>
+
+        <div id="createEventError" style="display:none; margin-top: 16px;"></div>
+        <button id="createEventBtn" class="btn-create-event-premium" style="margin-top:20px;" onclick="submitCreateEvent()">Create Test</button>
+      </div>
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:12px;">Your Events</h2>
+    <div id="eventsList">
+      <div class="empty-state"><span class="spinner-sm"></span> Loading events…</div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: ROSTER ═════════════════════════════════════════ -->
+  <div id="tab-roster" class="tab-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;">Manage Student Rosters</h2>
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-body" style="padding: 24px;">
+        <div class="field" style="margin-bottom:16px; max-width: 360px;">
+          <label class="form-field-label">Select Event</label>
+          <select class="form-input-premium" id="rosterEvent" onchange="loadRosterDetail()">
+            <option value="">— select event —</option>
+          </select>
+        </div>
+        
+        <div id="rosterUploadRow" style="display:none;">
+          <div style="font-size:0.75rem; color:#94a3b8; font-weight:600; margin-bottom:4px;">Expected CSV format:</div>
+          <div style="font-size:0.8rem; color:#475569; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:12px; font-family:monospace; pointer-events:none;">
+            roll_number,name<br>
+            CS2023001,Asha R<br>
+            CS2023002,Rahul K
+          </div>
+          
+          <div class="form-helper-text" style="margin-bottom:12px;">
+            Uploading a new CSV replaces the existing roster.
+          </div>
+          
+          <!-- Yellow Warning Box -->
+          <div style="background:#fefce8; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin-bottom:16px; max-width:600px; display:flex; gap:12px; align-items:flex-start;">
+            <span style="color:#d97706; font-size:1rem; line-height:1.2; font-weight:bold;">▲</span>
+            <div>
+              <div style="font-weight:600; color:#92400e; font-size:0.85rem; margin-bottom:2px;">Excel tip</div>
+              <div style="color:#78350f; font-size:0.8rem; line-height:1.5;">
+                Long roll numbers (e.g. 202312345678) get converted to scientific notation by Excel (7.15523E+11), which loses digits.
+                To prevent this: select the roll_number column &rarr; Format Cells &rarr; <strong>Text</strong> &rarr; then save as CSV.
+                Or open the CSV in Notepad first to verify the numbers look correct.
+              </div>
+            </div>
+          </div>
+          
+          <!-- Styled File input wrapper -->
+          <div style="display:flex; align-items:center; gap:12px; margin-top:8px;">
+            <input type="file" id="rosterFile" accept=".csv" onchange="handleRosterFileChange(this)" style="display:none;">
+            <button class="btn btn-secondary" onclick="document.getElementById('rosterFile').click()" style="border:1px solid #d1d5db; background:white; border-radius:8px; padding:8px 16px; font-size:0.875rem; color:#374151; height:38px; cursor:pointer;">Choose CSV file</button>
+            <span id="rosterFileName" style="font-size:0.875rem; color:#94a3b8; font-style:italic;">No file chosen</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="rosterDetail"></div>
+  </div>
+
+  <!-- ══ TAB: RESULTS ════════════════════════════════════════ -->
+  <div id="tab-results" class="tab-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;">Viva Results</h2>
+    <div class="field" style="margin-bottom:16px; max-width:360px;">
+      <label class="form-field-label">Select Event</label>
+      <select class="form-input-premium" id="resultsEvent" onchange="loadResults()">
+        <option value="">— select event —</option>
+      </select>
+    </div>
+    <div id="resultsSection">
+      <div class="empty-state">Select an event to view results.</div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: LIVE MONITOR ══════════════════════════════════ -->
+  <div id="tab-monitor" class="tab-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="font-size:1rem;font-weight:700;">Live Viva Monitor</h2>
+      <span id="monitorLastUpdate" style="font-size:12px;color:#94a3b8;"></span>
+    </div>
+
+    <!-- Slot bar -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#475569;margin-bottom:8px;">
+        <span>Active sessions</span>
+        <span id="monSlotText">— / 10</span>
+      </div>
+      <div style="height:10px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
+        <div id="monSlotFill" style="height:100%;background:linear-gradient(90deg,#2563eb,#3b82f6);border-radius:99px;width:0%;transition:width .5s;"></div>
+      </div>
+    </div>
+
+    <!-- Active sessions table -->
+    <h3 style="font-size:13px;font-weight:700;color:#1e3a8a;margin-bottom:8px;">Active Sessions</h3>
+    <div style="overflow-x:auto;margin-bottom:20px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;" id="monActiveTable">
+        <thead>
+          <tr style="background:#eff6ff;">
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #bfdbfe;">Roll No.</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #bfdbfe;">Name</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #bfdbfe;">Sub-agent</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #bfdbfe;">Question</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #bfdbfe;">Score</th>
+          </tr>
+        </thead>
+        <tbody id="monActiveBody">
+          <tr><td colspan="5" style="padding:14px;text-align:center;color:#94a3b8;">No active sessions</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Queue table -->
+    <h3 style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;">Queue</h3>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;" id="monQueueTable">
+        <thead>
+          <tr style="background:#fffbeb;">
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #fde68a;">#</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #fde68a;">Roll No.</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #fde68a;">Name</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #fde68a;">Waiting since</th>
+          </tr>
+        </thead>
+        <tbody id="monQueueBody">
+          <tr><td colspan="4" style="padding:14px;text-align:center;color:#94a3b8;">Queue is empty</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /dash-content -->
+
+<script>
+var API    = window.API || '';
+const params  = new URLSearchParams(location.search);
+const token   = params.get('token') || sessionStorage.getItem('prof_token');
+
+if (!token) { location.href = '/'; }
+sessionStorage.setItem('prof_token', token);
+
+// ── escape and rename helpers ────────────────────────────────
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+function escapeQuote(str) {
+  if (!str) return '';
+  return str.replace(/'/g, "\\'");
+}
+
+let renamingId = null;
+
+function startRename(id, display_name, btn) {
+  renamingId = id;
+  const parent = document.getElementById(`name-container-${id}`);
+  if (!parent) return;
+  parent.innerHTML = `
+    <div class="inline-rename-container" style="display:flex; align-items:center; gap:8px;">
+      <input type="text" class="inline-rename-input" value="${escapeHtml(display_name)}" id="rename-input-${id}" onkeydown="handleRenameKey(event, '${id}')" style="height:32px; padding:0 8px; border:1px solid #d1d5db; border-radius:6px; font-size:0.875rem;">
+      <button class="btn btn-sm btn-primary" onclick="submitRename('${id}')" style="padding:4px 10px; font-size:12px; border-radius:6px; background:#2563eb; color:#fff; border:none; cursor:pointer;">Save</button>
+      <button class="btn btn-sm btn-secondary" onclick="cancelRename('${id}')" style="padding:4px 10px; font-size:12px; border-radius:6px; background:#fff; color:#374151; border:1px solid #d1d5db; cursor:pointer;">Cancel</button>
+    </div>
+  `;
+  document.getElementById(`rename-input-${id}`).focus();
+}
+
+function cancelRename(id) {
+  renamingId = null;
+  loadContent();
+}
+
+async function handleRenameKey(event, id) {
+  if (event.key === 'Enter') {
+    submitRename(id);
+  } else if (event.key === 'Escape') {
+    cancelRename(id);
+  }
+}
+
+async function submitRename(id) {
+  const input = document.getElementById(`rename-input-${id}`);
+  if (!input) return;
+  const newName = input.value.trim();
+  if (!newName) {
+    showCustomAlert('Invalid Input', 'Display name cannot be empty', 'error');
+    return;
+  }
+  
+  try {
+    const res = await authFetch(`${API}/professor/content/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: newName })
+    });
+    if (res.ok) {
+      loadContent();
+    } else {
+      const err = await res.json();
+      showCustomAlert('Rename Failed', err.detail || 'Rename failed', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    showCustomAlert('Connection Error', 'Error connecting to backend', 'error');
+  }
+}
+
+function showCustomAlert(title, body, type = 'success', onClose = null) {
+  const modal = document.getElementById('customConfirmModal');
+  document.getElementById('confirmModalTitle').textContent = title;
+  document.getElementById('confirmModalBody').innerHTML = body.replace(/\n/g, '<br>');
+  
+  const iconDiv = document.getElementById('confirmModalIcon');
+  if (type === 'success') {
+    iconDiv.textContent = '';
+    iconDiv.style.background = '#dcfce7';
+    iconDiv.style.color = '#16a34a';
+  } else {
+    iconDiv.textContent = '!';
+    iconDiv.style.background = '#fef2f2';
+    iconDiv.style.color = '#ef4444';
+  }
+  
+  document.getElementById('confirmModalCancelBtn').style.display = 'none';
+  
+  const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+  confirmBtn.textContent = 'OK';
+  confirmBtn.style.background = type === 'success' ? '#16a34a' : '#2563eb';
+  
+  const newConfirmBtn = confirmBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+  
+  newConfirmBtn.onclick = () => {
+    if (onClose) onClose();
+    closeConfirmModal();
+  };
+  
+  modal.style.display = 'flex';
+}
+
+function showCustomConfirm(title, body, confirmText, onConfirm) {
+  const modal = document.getElementById('customConfirmModal');
+  document.getElementById('confirmModalTitle').textContent = title;
+  document.getElementById('confirmModalBody').textContent = body;
+  
+  const iconDiv = document.getElementById('confirmModalIcon');
+  iconDiv.textContent = '!';
+  iconDiv.style.background = '#fef2f2';
+  iconDiv.style.color = '#ef4444';
+  
+  document.getElementById('confirmModalCancelBtn').style.display = 'inline-block';
+  
+  const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+  confirmBtn.textContent = confirmText;
+  confirmBtn.style.background = confirmText === 'Delete' ? '#ef4444' : '#2563eb';
+  
+  const newConfirmBtn = confirmBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+  
+  newConfirmBtn.onclick = () => {
+    onConfirm();
+    closeConfirmModal();
+  };
+  
+  modal.style.display = 'flex';
+}
+
+function closeConfirmModal() {
+  document.getElementById('customConfirmModal').style.display = 'none';
+}
+
+async function deleteContent(id, filename) {
+  showCustomConfirm(
+    'Delete Content',
+    `Delete '${filename}'? This cannot be undone.`,
+    'Delete',
+    async () => {
+      try {
+        const res = await authFetch(`${API}/professor/content/${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          loadContent();
+        } else {
+          const err = await res.json();
+          showCustomAlert('Delete Failed', err.detail || 'Delete failed', 'error');
+        }
+      } catch (e) {
+        console.error(e);
+        showCustomAlert('Connection Error', 'Error connecting to backend', 'error');
+      }
+    }
+  );
+}
+
+// ── helpers ────────────────────────────────────────────────────────────────
+function authFetch(url, opts={}) {
+  const sep = url.includes('?') ? '&' : '?';
+  return fetch(url + sep + 'token=' + token, opts);
+}
+
+function logout() {
+  sessionStorage.removeItem('prof_token');
+  location.href = '/';
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  // refresh relevant dropdowns on tab switch
+  if (name === 'events') {
+    populateUploadsIntoSelects();
+    loadEvents();
+  }
+  if (name === 'roster' || name === 'results') {
+    populateEventSelects();
+  }
+}
+
+// ── boot ───────────────────────────────────────────────────
+(async () => {
+  // populate time dropdowns
+  populateTimePickers();
+  // verify token & show name
+  try {
+    const r = await authFetch(`${API}/professor/me`);
+    if (r.ok) {
+      const d = await r.json();
+      document.getElementById('profMeta').textContent = `Logged in as ${d.display_name || d.username}`;
+    } else {
+      document.getElementById('profMeta').textContent = 'Professor';
+    }
+  } catch(e) {
+    document.getElementById('profMeta').textContent = 'Professor';
+  }
+  loadContent();
+  loadEvents();
+})();
+
+// ══════════════════════════════════════════════════════════
+//  CONTENT TAB
+// ══════════════════════════════════════════════════════════
+async function uploadFile(file) {
+  if (!file) return;
+  const zone = document.getElementById('uploadZone');
+  zone.classList.remove('dragover');
+
+  const progWrap  = document.getElementById('uploadProgress');
+  const progBar   = document.getElementById('uploadProgressBar');
+  const progLabel = document.getElementById('uploadProgressLabel');
+  progWrap.style.display = 'block';
+  progLabel.textContent  = 'Uploading…';
+  progBar.style.width    = '5%';
+
+  const fd = new FormData();
+  fd.append('token', token);
+  fd.append('file', file);
+
+  const res  = await fetch(`${API}/professor/content/upload`, { method:'POST', body:fd });
+  const data = await res.json();
+  if (!res.ok) { showCustomAlert('Upload Failed', data.detail || 'Upload failed', 'error'); progWrap.style.display='none'; return; }
+
+  const uploadId   = data.upload_id;
+  progLabel.textContent = 'Processing knowledge base…';
+
+  // Poll pipeline status
+  const poll = setInterval(async () => {
+    const sr = await fetch(`${API}/student/pipeline/status/${uploadId}`);
+    const sd = await sr.json();
+    const pct  = sd.percentage || 0;
+    const label = sd.label || '';
+    progBar.style.width = pct + '%';
+    progLabel.textContent = label || `Processing… ${pct}%`;
+    if (pct >= 100 || sd.step >= 6) {
+      clearInterval(poll);
+      progWrap.style.display = 'none';
+      loadContent();
+      populateUploadsIntoSelects();
+    }
+  }, 2500);
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadFile(file);
+}
+
+async function loadContent() {
+  const res  = await authFetch(`${API}/professor/content`);
+  const data = res.ok ? await res.json() : [];
+  const list = document.getElementById('contentList');
+  list.innerHTML = '';
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-state">No content uploaded yet.</div>';
+    return;
+  }
+  data.forEach(u => {
+    const ready = u.okf_ready;
+    const div   = document.createElement('div');
+    div.className = 'ci-card-premium';
+    
+    const displayName = u.display_name || u.filename;
+    div.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
+          <span class="ci-icon" style="font-size:1.5rem; flex-shrink:0;">${u.filename.endsWith('.pdf') ? '' : ''}</span>
+          <div style="flex:1; min-width:0;" id="name-container-${u.upload_id}">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="ci-name" style="font-weight:600; font-size:0.95rem; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%;">${escapeHtml(displayName)}</span>
+              <button class="ci-action-btn rename" onclick="startRename('${u.upload_id}', '${escapeQuote(displayName)}', this)" title="Rename">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+              </button>
+              <button class="ci-action-btn delete" onclick="deleteContent('${u.upload_id}', '${escapeQuote(u.filename)}')" title="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <span class="ci-badge-premium ${ready ? 'ready' : 'processing'}">${ready ? 'Ready' : 'Processing'}</span>
+      </div>
+      <div class="ci-sub" style="margin-left:36px; margin-top:2px; font-size:0.75rem; color:#94a3b8; font-weight:400;">Original: ${escapeHtml(u.filename)} &middot; Uploaded: ${fmtDate(u.uploaded_at)}</div>
+      ${!ready ? `<div style="margin-left:36px; margin-top:4px; font-size:12px; color:#92400e;">${u.label || 'Processing…'} (${u.percentage}%)</div>` : ''}
+    `;
+    list.appendChild(div);
+  });
+  populateUploadsIntoSelects();
+}
+
+async function populateUploadsIntoSelects() {
+  const res  = await authFetch(`${API}/professor/content`);
+  const data = res.ok ? await res.json() : [];
+  const ready = data.filter(u => u.okf_ready);
+
+  const sel = document.getElementById('evUpload');
+  const cur = sel.value;
+  sel.innerHTML = ready.length
+    ? '<option value="">— select knowledge base —</option>'
+    : '<option value="">⏳ No content ready yet — upload in Content tab</option>';
+
+  ready.forEach(u => {
+    const opt = new Option( (u.display_name || u.filename), u.upload_id);
+    sel.appendChild(opt);
+  });
+
+  // restore previous selection or auto-select if only one option
+  if (cur && ready.find(u => u.upload_id === cur)) {
+    sel.value = cur;
+  } else if (ready.length === 1) {
+    sel.value = ready[0].upload_id;   // auto-select when there's only one
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  EVENTS TAB
+// ══════════════════════════════════════════════════════════
+function populateTimePickers() {
+  // Test config: wire live total-marks calculation.
+  const nq  = document.getElementById('evNumQuestions');
+  const mpq = document.getElementById('evMarksPerQ');
+  if (nq)  nq.addEventListener('input', updateTotalMarks);
+  if (mpq) mpq.addEventListener('input', updateTotalMarks);
+  updateTotalMarks();
+}
+
+// Returns the duration in minutes between two HH:MM times.
+// If end <= start numerically, treats end as next-day (cross-midnight).
+function timeDiffMin(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff <= 0) diff += 24 * 60;
+  return diff;
+}
+
+function updateSlotPreview() {
+  // Preview disabled
+}
+
+function updateTotalMarks() {
+  const nq = parseInt(document.getElementById('evNumQuestions').value) || 0;
+  const mpq = parseInt(document.getElementById('evMarksPerQ').value) || 0;
+  const el = document.getElementById('evTotalMarks');
+  if (el) el.value = nq * mpq;
+}
+
+async function submitCreateEvent() {
+  const btn        = document.getElementById('createEventBtn');
+  const errBox     = document.getElementById('createEventError');
+  const title      = document.getElementById('evTitle').value.trim();
+  const uploadId   = document.getElementById('evUpload').value;
+  const numQ       = parseInt(document.getElementById('evNumQuestions').value) || 10;
+  const marksPerQ  = parseInt(document.getElementById('evMarksPerQ').value) || 1;
+
+  errBox.style.display = 'none';
+
+  if (!title)    { showEvErr('Please enter a test title.'); return; }
+  if (!uploadId) { showEvErr('Please select a knowledge base. If none appear, upload content first and wait for it to finish processing.'); return; }
+  if (numQ < 1 || numQ > 50)  { showEvErr('Number of questions must be between 1 and 50.'); return; }
+  if (marksPerQ < 1)          { showEvErr('Marks per question must be at least 1.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Generating questions…';
+
+  const progressId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  const progress = startGenProgress(progressId, numQ);
+  let ok = false;
+
+  try {
+    const res = await fetch(`${API}/professor/events?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ upload_id:uploadId, title, num_questions:numQ, marks_per_question:marksPerQ, progress_id:progressId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      progress.fail();
+      showEvErr(data.detail || 'Failed to create test. Check that the knowledge base is fully processed.');
+      return;
+    }
+    ok = true;
+    progress.finish(data.num_questions);
+    document.getElementById('evTitle').value = '';
+    showEvSuccess(`Test created — ${data.num_questions} questions, ${data.total_marks} total marks. Add a roster to assign students.`);
+    loadEvents();
+    populateEventSelects();
+  } catch(e) {
+    progress.fail();
+    showEvErr('Network error — is the backend running? ' + e.message);
+  } finally {
+    progress.stop(ok);
+    btn.disabled = false;
+    btn.textContent = 'Create Test';
+  }
+}
+
+// ── Question-generation progress bar ───────────────────────
+// Each backend stage owns a slice of the bar. While a stage is running (the AI
+// call can take a minute) the bar eases toward the top of its slice, so it keeps
+// moving without ever claiming more progress than the backend has reported.
+const GEN_STAGES = {
+  pending:    { from: 0,  to: 4,  label: () => 'Starting…' },
+  reading:    { from: 4,  to: 10, label: () => 'Reading the knowledge base…' },
+  generating: { from: 10, to: 88, label: (a, n) => a > 1
+                  ? `Retrying — writing ${n} questions (attempt ${a} of 3)…`
+                  : `Writing ${n} questions with the AI…` },
+  checking:   { from: 88, to: 94, label: () => 'Checking the questions…' },
+  saving:     { from: 94, to: 99, label: () => 'Saving the test…' },
+};
+// Later attempts get progressively smaller slices of the "generating" range
+const ATTEMPT_SLICES = { 1: [10, 72], 2: [72, 82], 3: [82, 88] };
+
+let _genHideTimer = null;
+
+function startGenProgress(progressId, numQ) {
+  clearTimeout(_genHideTimer);   // a previous run's hide must not hide this one
+  const box   = document.getElementById('genProgress');
+  const fill  = document.getElementById('genProgressFill');
+  const pctEl = document.getElementById('genProgressPct');
+  const label = document.getElementById('genProgressLabel');
+  const track = document.getElementById('genProgressTrack');
+  box.hidden = false;
+  box.classList.remove('done', 'failed');
+
+  let shown = 0, stage = 'pending', attempt = 0, stageStart = Date.now(), stopped = false;
+
+  function range() {
+    if (stage === 'generating' && ATTEMPT_SLICES[attempt]) return ATTEMPT_SLICES[attempt];
+    const st = GEN_STAGES[stage] || GEN_STAGES.pending;
+    return [st.from, st.to];
+  }
+  function paint(p, text) {
+    shown = Math.max(shown, Math.min(100, p));
+    fill.style.width = shown + '%';
+    pctEl.textContent = Math.floor(shown) + '%';
+    track.setAttribute('aria-valuenow', String(Math.floor(shown)));
+    if (text) label.textContent = text;
+    const order = ['reading', 'generating', 'checking', 'saving'];
+    const idx = order.indexOf(stage);
+    document.querySelectorAll('#genProgressSteps span').forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+      el.classList.toggle('complete', idx > i || stage === 'done');
+    });
+  }
+  function tick() {
+    if (stopped) return;
+    const [lo, hi] = range();
+    // ease toward 95% of the slice; ~63% of the way after 25s of a model call
+    const t = (Date.now() - stageStart) / 1000;
+    const p = lo + (hi - lo) * 0.95 * (1 - Math.exp(-t / 25));
+    const st = GEN_STAGES[stage] || GEN_STAGES.pending;
+    paint(p, st.label(attempt, numQ));
+  }
+  async function poll() {
+    if (stopped) return;
+    try {
+      const r = await fetch(`${API}/professor/events/progress/${encodeURIComponent(progressId)}?token=${encodeURIComponent(token)}`);
+      if (r.ok) {
+        const d = await r.json();
+        if (d.stage !== stage || (d.attempt || 0) !== attempt) {
+          if (GEN_STAGES[d.stage]) {
+            stage = d.stage; attempt = d.attempt || 0; stageStart = Date.now();
+            paint(range()[0]);
+          }
+        }
+      }
+    } catch (e) {}
+    if (!stopped) pollTimer = setTimeout(poll, 800);
+  }
+  let pollTimer = setTimeout(poll, 300);
+  const anim = setInterval(tick, 200);
+  paint(1, GEN_STAGES.pending.label());
+
+  return {
+    finish(n) {
+      stage = 'done'; stopped = true;
+      clearInterval(anim); clearTimeout(pollTimer);
+      box.classList.add('done');
+      paint(100, `Done — ${n} questions ready`);
+    },
+    fail() {
+      stopped = true;
+      clearInterval(anim); clearTimeout(pollTimer);
+      box.classList.add('failed');
+      label.textContent = 'Question generation failed';
+    },
+    stop(ok) {
+      stopped = true;
+      clearInterval(anim); clearTimeout(pollTimer);
+      _genHideTimer = setTimeout(() => { box.hidden = true; }, ok ? 2500 : 6000);
+    },
+  };
+}
+
+function showEvErr(msg) {
+  const el = document.getElementById('createEventError');
+  el.style.cssText = 'display:block;background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;';
+  el.textContent = msg;
+}
+function showEvSuccess(msg) {
+  const el = document.getElementById('createEventError');
+  el.style.cssText = 'display:block;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;';
+  el.textContent = msg;
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+async function loadEvents() {
+  const res  = await authFetch(`${API}/professor/events`);
+  const data = res.ok ? await res.json() : [];
+  const sec  = document.getElementById('eventsList');
+  sec.innerHTML = '';
+
+  if (!data.length) {
+    sec.innerHTML = '<div class="empty-state">No events yet. Create one above.</div>';
+    return;
+  }
+
+  data.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    card.innerHTML = `
+      <div class="event-header" onclick="toggleEv(this,'${ev.event_id}')">
+        <div style="flex:1">
+          <div class="event-title">${ev.title}</div>
+          <div class="event-meta">${ev.num_questions || 10} questions · ${(ev.num_questions||10)*(ev.marks_per_question||1)} marks · ${ev.content_name}</div>
+          <div class="event-stats">
+            <span class="stat-chip stat-total">${ev.max_students || 10} max students</span>
+            <span class="stat-chip stat-booked">${ev.roster_count || 0} in roster</span>
+            <span class="stat-chip stat-done">${ev.completed} completed</span>
+          </div>
+        </div>
+        <span style="font-size:1.2rem;color:var(--text-muted);">▾</span>
+      </div>
+      <div class="event-body" id="evbody-${ev.event_id}">
+        <div class="event-actions">
+          <a class="btn btn-secondary" style="font-size:13px;" href="${API}/professor/events/${ev.event_id}/export?token=${token}" download>Export Excel</a>
+          <button class="btn" style="font-size:13px;background:#fef2f2;color:#991b1b;border:none;" onclick="deleteEvent('${ev.event_id}')">Delete</button>
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">
+          <strong>Always available</strong> to rostered students · one attempt each &nbsp;·&nbsp;
+          <strong>${ev.num_questions || 10}</strong> questions, <strong>${ev.marks_per_question || 1}</strong> mark(s) each
+        </div>
+        <div id="slotgrid-${ev.event_id}"></div>
+      </div>
+    `;
+    sec.appendChild(card);
+  });
+
+  populateEventSelects();
+}
+
+async function toggleEv(headerEl, eventId) {
+  const body = document.getElementById(`evbody-${eventId}`);
+  const isOpen = body.classList.toggle('open');
+  if (isOpen) {
+    await loadEventSlots(eventId);
+  }
+}
+
+async function loadEventSlots(eventId) {
+  const grid = document.getElementById(`slotgrid-${eventId}`);
+  if (!grid) return;
+  grid.innerHTML = '<span class="spinner-sm"></span> Loading slots…';
+
+  const res  = await authFetch(`${API}/professor/events/${eventId}`);
+  if (!res.ok) { grid.innerHTML = 'Failed to load slots.'; return; }
+  const data = await res.json();
+
+  const slots = data.slots || [];
+  if (!slots.length) {
+    grid.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">No slots generated.</div>';
+    return;
+  }
+
+  grid.innerHTML = '<h4 style="font-size:13px;font-weight:700;margin:12px 0 6px;color:var(--text-secondary);">Slot Bookings & Status</h4>';
+  const tbl = document.createElement('table');
+  tbl.className = 'roster-table';
+  tbl.style.marginTop = '4px';
+  tbl.innerHTML = `<thead><tr>
+    <th>Slot Index</th>
+    <th>Time Slot</th>
+    <th>Student</th>
+    <th>Booked At</th>
+    <th>Status</th>
+  </tr></thead>`;
+  const tbody = document.createElement('tbody');
+  slots.forEach(s => {
+    let studentLabel = '—';
+    if (s.roll_number) {
+      studentLabel = `<strong>${s.student_name}</strong> (${s.roll_number})`;
+    }
+    
+    let badgeStyle = "background:#f1f5f9; color:#475569;";
+    if (s.status === 'completed') {
+      badgeStyle = "background:#dcfce7; color:#15803d; border: 1px solid #bbf7d0;";
+    } else if (s.status === 'in_progress') {
+      badgeStyle = "background:#eff6ff; color:#1d4ed8; border: 1px solid #bfdbfe;";
+    } else if (s.status === 'no_show') {
+      badgeStyle = "background:#fef2f2; color:#b91c1c; border: 1px solid #fca5a5;";
+    } else if (s.status === 'booked') {
+      badgeStyle = "background:#ffedd5; color:#c2410c; border: 1px solid #fed7aa;";
+    } else if (s.status === 'disabled') {
+      badgeStyle = "background:#f1f5f9; color:#94a3b8; border: 1px solid #e2e8f0; text-decoration: line-through;";
+    }
+    
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${s.slot_index + 1}</td>
+      <td><strong>${s.slot_start} – ${s.slot_end}</strong></td>
+      <td>${studentLabel}</td>
+      <td>${s.booked_at ? new Date(s.booked_at).toLocaleString('en-GB') : '—'}</td>
+      <td><span class="event-badge" style="padding:2px 8px; border-radius:4px; font-weight:600; font-size:11px; ${badgeStyle}">${s.status.toUpperCase()}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  grid.appendChild(tbl);
+}
+
+async function deleteEvent(eventId) {
+  showCustomConfirm(
+    'Delete Event',
+    'Delete this event and all its bookings?',
+    'Delete',
+    async () => {
+      const res = await authFetch(`${API}/professor/events/${eventId}`, { method:'DELETE' });
+      if (res.ok) { loadEvents(); populateEventSelects(); }
+      else { const d = await res.json(); showCustomAlert('Delete Failed', d.detail || 'Delete failed', 'error'); }
+    }
+  );
+}
+
+async function populateEventSelects() {
+  const res  = await authFetch(`${API}/professor/events`);
+  const data = res.ok ? await res.json() : [];
+
+  ['rosterEvent','resultsEvent'].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— select event —</option>';
+    data.forEach(ev => {
+      sel.appendChild(new Option(`${ev.title} (${ev.event_date})`, ev.event_id));
+    });
+    if (cur) sel.value = cur;
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  ROSTER TAB
+// ══════════════════════════════════════════════════════════
+async function loadRosterDetail() {
+  const eventId = document.getElementById('rosterEvent').value;
+  const row     = document.getElementById('rosterUploadRow');
+  const detail  = document.getElementById('rosterDetail');
+  detail.innerHTML = '';
+
+  if (!eventId) { row.style.display='none'; return; }
+  row.style.display = 'block';
+
+  const res  = await authFetch(`${API}/professor/events/${eventId}`);
+  if (!res.ok) return;
+  const data = await res.json();
+
+  const roster = data.roster;
+  if (!roster.length) {
+    detail.innerHTML = '<div class="empty-state">No students in roster yet. Upload a CSV.</div>';
+    return;
+  }
+
+  const tbl = document.createElement('table');
+  tbl.className = 'table-premium';
+  tbl.innerHTML = `<thead><tr><th style="width: 40px; text-align: center;">#</th><th>Roll Number</th><th>Name</th></tr></thead>`;
+  const tbody = document.createElement('tbody');
+
+  roster.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="text-align: center; color: #94a3b8; font-weight: 500;">${i+1}</td>
+      <td style="font-family: monospace; font-size: 0.85rem;">${r.roll_number}</td>
+      <td class="name">${r.name || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  
+  const tblContainer = document.createElement('div');
+  tblContainer.className = 'table-card-premium';
+  tblContainer.appendChild(tbl);
+  detail.appendChild(tblContainer);
+}
+
+function handleRosterFileChange(input) {
+  const span = document.getElementById('rosterFileName');
+  if (input.files && input.files[0]) {
+    span.textContent = input.files[0].name;
+    uploadRoster();
+  } else {
+    span.textContent = 'No file chosen';
+  }
+}
+
+async function uploadRoster() {
+  const eventId = document.getElementById('rosterEvent').value;
+  const file    = document.getElementById('rosterFile').files[0];
+  if (!eventId || !file) return;
+
+  const fd = new FormData();
+  fd.append('token', token);
+  fd.append('file', file);
+
+  const res  = await fetch(`${API}/professor/events/${eventId}/roster`, { method:'POST', body:fd });
+  const data = await res.json();
+  if (!res.ok) { showCustomAlert('Upload Failed', data.detail || 'Upload failed', 'error'); return; }
+  let msg = `Roster uploaded successfully. <strong>${data.added}</strong> students added.`;
+  let alertType = 'success';
+  if (data.warning) {
+    msg += `<br><br><span style="color:#ef4444; font-weight:600;">Warning:</span> ${data.warning}`;
+    alertType = 'warning';
+  }
+  showCustomAlert('Roster Uploaded', msg, alertType);
+  loadRosterDetail();
+}
+
+// ══════════════════════════════════════════════════════════
+//  RESULTS TAB
+// ══════════════════════════════════════════════════════════
+
+
+function renderResultsTable(list) {
+  const tblContainer = document.getElementById('resultsTableContainer');
+  if (!tblContainer) return;
+  tblContainer.innerHTML = '';
+  
+  if (!list.length) {
+    tblContainer.innerHTML = '<div class="empty-state">No students found matching this filter.</div>';
+    return;
+  }
+  
+  const tbl = document.createElement('table');
+  tbl.className = 'table-premium';
+  tbl.innerHTML = `<thead><tr>
+    <th>Roll No.</th><th>Name</th><th>Topic</th><th>Slot</th><th>Status</th>
+    <th class="numeric">Knowledge</th><th class="numeric">Understanding</th><th class="numeric">Application</th><th class="numeric">Total</th><th style="text-align:center;">Grade</th>
+  </tr></thead>`;
+  const tbody = document.createElement('tbody');
+
+  list.forEach(s => {
+    let badgeClass = "pending";
+    if (s.status === 'Completed') {
+      badgeClass = "completed";
+    } else if (s.status === 'In Progress') {
+      badgeClass = "pending";
+    } else if (s.status === 'No Show') {
+      badgeClass = "no-show";
+    } else if (s.status === 'Pending') {
+      badgeClass = "pending";
+    } else if (s.status === 'Not Booked') {
+      badgeClass = "not-booked";
+    }
+    
+    const grade = s.grade || '';
+    const isAbsent = (grade === 'Absent' || s.status === 'No Show');
+    let gradeHtml = grade;
+    if (grade && grade !== '-') {
+      if (isAbsent) {
+        gradeHtml = `<span style="color:#dc2626; font-weight:700;">Absent</span>`;
+      } else {
+        gradeHtml = `<span style="color:#16a34a; font-weight:700;">${grade}</span>`;
+      }
+    }
+    
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family: monospace; font-size: 0.85rem;">${s.roll_number || '—'}</td>
+      <td class="name">${s.breakdown
+        ? `<button class="rs-name-btn" aria-expanded="false" onclick="toggleStudentChart(this)">${escapeHtml(s.student_name || '—')}<span class="rs-caret" aria-hidden="true">▾</span></button>`
+        : escapeHtml(s.student_name || '—')}</td>
+      <td>${s.topic || '—'}</td>
+      <td>${s.slot || '—'}</td>
+      <td><span class="status-badge-premium ${badgeClass}">${s.status}</span></td>
+      <td class="numeric">${s.knowledge}</td>
+      <td class="numeric">${s.understanding}</td>
+      <td class="numeric">${s.application}</td>
+      <td class="numeric"><strong>${s.total}</strong></td>
+      <td style="text-align:center;">${gradeHtml}</td>
+    `;
+    tbody.appendChild(tr);
+    if (s.breakdown) {
+      const detail = document.createElement('tr');
+      detail.className = 'rs-detail';
+      detail.hidden = true;
+      detail.innerHTML = `<td colspan="10">${renderStudentChart(s)}</td>`;
+      tbody.appendChild(detail);
+    }
+  });
+  
+  tbl.appendChild(tbody);
+  
+  const wrap = document.createElement('div');
+  wrap.className = 'table-card-premium';
+  wrap.appendChild(tbl);
+  
+  // Footer with Export Excel button placed bottom-right of the table card
+  const footer = document.createElement('div');
+  footer.style.cssText = 'padding: 16px 20px; background: rgba(255,255,255,0.02); border-top: 1px solid var(--border); display: flex; justify-content: flex-end;';
+  footer.innerHTML = window.currentExportButtonHtml || '';
+  wrap.appendChild(footer);
+  
+  tblContainer.appendChild(wrap);
+}
+
+// ── Per-student answer chart ──────────────────────────────
+const RS_COLORS = { correct: '#34D399', wrong: '#F87171', unanswered: '#6B7280' };
+
+function toggleStudentChart(btn) {
+  const detail = btn.closest('tr').nextElementSibling;
+  if (!detail || !detail.classList.contains('rs-detail')) return;
+  const open = detail.hidden;
+  detail.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.closest('tr').classList.toggle('rs-open', open);
+}
+
+function donutSvg(parts, total) {
+  const r = 52, c = 2 * Math.PI * r;
+  let offset = 0;
+  const arcs = parts.filter(p => p.value > 0).map(p => {
+    const len = (p.value / total) * c;
+    // a hairline gap between slices, unless it is the only slice
+    const gap = parts.filter(q => q.value > 0).length > 1 ? 2 : 0;
+    const seg = `<circle r="${r}" cx="70" cy="70" fill="none" stroke="${p.color}" stroke-width="18"
+      stroke-dasharray="${Math.max(0, len - gap)} ${c}" stroke-dashoffset="${-offset}"
+      transform="rotate(-90 70 70)"><title>${p.label}: ${p.value}</title></circle>`;
+    offset += len;
+    return seg;
+  }).join('');
+  return `<svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="${parts.map(p => `${p.label} ${p.value}`).join(', ')}">
+    <circle r="${r}" cx="70" cy="70" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="18"/>
+    ${arcs}
+  </svg>`;
+}
+
+function renderStudentChart(s) {
+  const b = s.breakdown;
+  const total = b.correct + b.wrong + b.unanswered;
+  if (!total) return '<div class="rs-panel"><div class="rs-empty">No answers recorded.</div></div>';
+  const pct = Math.round(100 * b.correct / total);
+  const parts = [
+    { label: 'Correct',    value: b.correct,    color: RS_COLORS.correct },
+    { label: 'Wrong',      value: b.wrong,      color: RS_COLORS.wrong },
+    { label: 'Unanswered', value: b.unanswered, color: RS_COLORS.unanswered },
+  ];
+  const legend = parts.filter(p => p.value > 0 || p.label !== 'Unanswered').map(p => `
+    <div class="rs-legend-row">
+      <span class="rs-swatch" style="background:${p.color}"></span>
+      <span class="rs-legend-label">${p.label}</span>
+      <span class="rs-legend-val">${p.value}</span>
+    </div>`).join('');
+
+  const qs = b.questions ? `
+    <ol class="rs-qlist">
+      ${b.questions.map(q => `
+        <li class="${q.is_correct ? 'ok' : 'bad'}">
+          <span class="rs-qmark" aria-label="${q.is_correct ? 'Correct' : 'Wrong'}">${q.is_correct ? '✓' : '✕'}</span>
+          <div>
+            <div class="rs-qtext">${escapeHtml(q.question)}</div>
+            <div class="rs-qans">
+              ${q.is_correct
+                ? `Answered: ${escapeHtml(q.chosen || '')}`
+                : `${q.chosen ? `Answered: <span class="rs-wrong">${escapeHtml(q.chosen)}</span> · ` : '<span class="rs-wrong">Not answered</span> · '}Correct: <span class="rs-right">${escapeHtml(q.correct_option)}</span>`}
+            </div>
+          </div>
+        </li>`).join('')}
+    </ol>`
+    : '<div class="rs-empty">Question-by-question answers weren’t saved for this attempt (it was taken before answer tracking was added).</div>';
+
+  return `
+    <div class="rs-panel">
+      <div class="rs-chart">
+        <div class="rs-donut">
+          ${donutSvg(parts, total)}
+          <div class="rs-donut-center"><div class="rs-pct">${pct}%</div><div class="rs-sub">${b.correct}/${total} correct</div></div>
+        </div>
+        <div class="rs-legend">
+          ${legend}
+          <div class="rs-legend-row rs-marks"><span class="rs-legend-label">Marks</span><span class="rs-legend-val">${s.total} / ${s.max_marks}</span></div>
+        </div>
+      </div>
+      <div class="rs-answers">${qs}</div>
+    </div>`;
+}
+
+function filterResults(status, btnEl) {
+  document.querySelectorAll('.filter-tab-premium').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  btnEl.classList.add('active');
+  
+  if (status === 'all') {
+    renderResultsTable(window.currentResults);
+  } else {
+    const filtered = window.currentResults.filter(r => r.status === status);
+    renderResultsTable(filtered);
+  }
+}
+
+async function loadResults() {
+  const eventId = document.getElementById('resultsEvent').value;
+  const sec     = document.getElementById('resultsSection');
+  if (!eventId) {
+    sec.innerHTML = '<div class="empty-state">Select an event to view results.</div>';
+    return;
+  }
+  sec.innerHTML = '<div class="empty-state"><span class="spinner-sm"></span> Loading…</div>';
+
+  const res  = await authFetch(`${API}/professor/events/${eventId}/results`);
+  if (!res.ok) { sec.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
+  const data = await res.json();
+
+  window.currentResults = data.results || [];
+  
+  if (!window.currentResults.length) {
+    sec.innerHTML = `<div class="empty-state">No roster students yet for this event.</div>`;
+    return;
+  }
+
+  // Fetch event details to get slots and check conclusion time (Bug C)
+  const eventRes = await authFetch(`${API}/professor/events/${eventId}`);
+  const eventData = eventRes.ok ? await eventRes.json() : null;
+  
+  let isConcluded = true;
+  let fmtConcludedTime = '';
+  if (eventData && eventData.slots && eventData.slots.length > 0) {
+    const sortedSlots = [...eventData.slots].sort((a, b) => a.slot_start.localeCompare(b.slot_start));
+    const lastSlot = sortedSlots[sortedSlots.length - 1];
+    
+    const [sh, sm] = lastSlot.slot_start.split(':').map(Number);
+    const concludedDt = new Date(`${eventData.event_date}T00:00:00`);
+    concludedDt.setHours(sh);
+    concludedDt.setMinutes(sm + 2);
+    
+    isConcluded = new Date() >= concludedDt;
+    fmtConcludedTime = concludedDt.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+  
+  const totalCnt = window.currentResults.length;
+  const completedCnt = window.currentResults.filter(r => r.status === 'Completed').length;
+  const noshowCnt = window.currentResults.filter(r => r.status === 'No Show').length;
+  const pendingCnt = window.currentResults.filter(r => r.status === 'Pending').length;
+  const notbookedCnt = window.currentResults.filter(r => r.status === 'Not Booked').length;
+
+  let exportButtonHtml = '';
+  if (isConcluded) {
+    exportButtonHtml = `<a class="btn-create-event-premium" style="text-decoration:none;" href="${API}/professor/events/${eventId}/export?token=${token}" download>Export Excel</a>`;
+  } else {
+    exportButtonHtml = `
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+        <div style="font-size:12px; color:#ef4444; font-weight:600; margin-bottom:2px;">
+          Export available after the event ends at ${fmtConcludedTime}.
+        </div>
+        <a class="btn-create-event-premium" href="#" style="pointer-events:none; opacity:0.5; background:#cbd5e1; color:#94a3b8; text-decoration:none;" onclick="return false;">Export Excel</a>
+      </div>
+    `;
+  }
+  window.currentExportButtonHtml = exportButtonHtml;
+
+  sec.innerHTML = `
+    <!-- Stats Bar -->
+    <div class="stat-row-premium">
+      <div class="stat-card-premium">
+        <div class="num" style="color: var(--text);">${totalCnt}</div>
+        <div class="label">Total</div>
+      </div>
+      <div class="stat-card-premium">
+        <div class="num" style="color: #16a34a;">${completedCnt}</div>
+        <div class="label">Completed</div>
+      </div>
+      <div class="stat-card-premium">
+        <div class="num" style="color: #2563eb;">${pendingCnt}</div>
+        <div class="label">Pending</div>
+      </div>
+      <div class="stat-card-premium">
+        <div class="num" style="color: #dc2626;">${noshowCnt}</div>
+        <div class="label">No Show</div>
+      </div>
+      <div class="stat-card-premium">
+        <div class="num" style="color: #d97706;">${notbookedCnt}</div>
+        <div class="label">Not Booked</div>
+      </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar-premium">
+      <button class="filter-tab-premium active" onclick="filterResults('all', this)">All Students (${totalCnt})</button>
+      <button class="filter-tab-premium" onclick="filterResults('Completed', this)">Completed (${completedCnt})</button>
+      <button class="filter-tab-premium" onclick="filterResults('No Show', this)">No Show (${noshowCnt})</button>
+      <button class="filter-tab-premium" onclick="filterResults('Pending', this)">Pending (${pendingCnt})</button>
+      <button class="filter-tab-premium" onclick="filterResults('Not Booked', this)">Not Booked (${notbookedCnt})</button>
+    </div>
+    
+    <div id="resultsTableContainer"></div>
+  `;
+  
+  renderResultsTable(window.currentResults);
+}
+
+// ── util ───────────────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return '';
+  try { return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+  catch(e) { return d; }
+}
+
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const hour  = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+// ── Live Monitor ───────────────────────────────────────────
+let _monitorTimer = null;
+
+function startMonitor() {
+  refreshMonitor();
+  if (!_monitorTimer) {
+    _monitorTimer = setInterval(refreshMonitor, 10000);
+  }
+}
+
+function stopMonitor() {
+  if (_monitorTimer) { clearInterval(_monitorTimer); _monitorTimer = null; }
+}
+
+async function refreshMonitor() {
+  try {
+    const res  = await fetch(`${API}/orchestrator/status`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const active = data.active_sessions || [];
+    const queue  = data.queue           || [];
+    const count  = data.active_count    || 0;
+
+    // Slot bar
+    document.getElementById('monSlotText').textContent = `${count} / 10`;
+    document.getElementById('monSlotFill').style.width = `${Math.min(100, count / 10 * 100)}%`;
+
+    // Active sessions table
+    const tbody = document.getElementById('monActiveBody');
+    if (!active.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#94a3b8;">No active sessions</td></tr>';
+    } else {
+      tbody.innerHTML = active.map((s, i) => `
+        <tr style="background:${i%2===0?'#fff':'#f8fafc'}">
+          <td style="padding:8px 10px;font-weight:600;">${esc(s.roll_number||'')}</td>
+          <td style="padding:8px 10px;">${esc(s.student_name||'')}</td>
+          <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#6366f1;">${esc(s.sub_agent_id||'')}</td>
+          <td style="padding:8px 10px;text-align:center;">
+            <span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:99px;font-weight:700;">
+              Q${s.question_number||0}
+            </span>
+          </td>
+          <td style="padding:8px 10px;text-align:center;font-weight:700;color:#16a34a;">${s.score_so_far||0} pts</td>
+        </tr>`).join('');
+    }
+
+    // Queue table
+    const qbody = document.getElementById('monQueueBody');
+    if (!queue.length) {
+      qbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:#94a3b8;">Queue is empty</td></tr>';
+    } else {
+      qbody.innerHTML = queue.map(q => {
+        const since = q.joined_at ? new Date(q.joined_at+'Z').toLocaleTimeString() : '—';
+        return `<tr>
+          <td style="padding:8px 10px;font-weight:700;color:#d97706;">#${q.position}</td>
+          <td style="padding:8px 10px;font-weight:600;">${esc(q.roll_number||'')}</td>
+          <td style="padding:8px 10px;">${esc(q.student_name||'')}</td>
+          <td style="padding:8px 10px;color:#94a3b8;">${since}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    document.getElementById('monitorLastUpdate').textContent =
+      `Last updated: ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    document.getElementById('monitorLastUpdate').textContent = 'Update failed — retrying…';
+  }
+}
+
+// Stop polling when leaving the monitor tab
+const _origSwitchTab = switchTab;
+switchTab = function(name, btn) {
+  _origSwitchTab(name, btn);
+  if (name !== 'monitor') stopMonitor();
+};
+</script>
+<!-- Custom Premium Modal Dialog -->
+<div id="customConfirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:440px; border-radius:16px; background:#fff; box-shadow:0 10px 25px rgba(0,0,0,0.1); overflow:hidden; border:none; animation: modalFadeIn 0.25s ease-out; margin:20px;">
+    <div style="padding:24px; text-align:center;">
+      <div id="confirmModalIcon" style="width:56px; height:56px; border-radius:50%; background:#fef2f2; color:#ef4444; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:24px; font-weight:bold;">!</div>
+      <h3 style="font-size:1.15rem; font-weight:700; color:#1e293b; margin-bottom:8px; font-family:'Inter',sans-serif;" id="confirmModalTitle">Delete Content</h3>
+      <p style="font-size:14px; color:#64748b; line-height:1.5; margin-bottom:0; font-family:'Inter',sans-serif;" id="confirmModalBody">Are you sure you want to delete this file? This action cannot be undone.</p>
+    </div>
+    <div style="background:#f8fafc; padding:16px 24px; display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #e2e8f0;">
+      <button id="confirmModalCancelBtn" style="border:1px solid #d1d5db; background:white; border-radius:8px; padding:8px 16px; font-size:0.875rem; color:#374151; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif;" onclick="closeConfirmModal()">Cancel</button>
+      <button id="confirmModalConfirmBtn" style="background:#ef4444; color:white; border-radius:8px; padding:8px 16px; font-size:0.875rem; font-weight:600; border:none; cursor:pointer; font-family:'Inter',sans-serif;">Delete</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
