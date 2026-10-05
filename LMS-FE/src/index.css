@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────────
+   Pariksha's dark, glassy look. Components use the semantic names
+   (bg-card, text-muted-foreground, border-border, …) — never raw hex. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display", ui-serif, Georgia, serif;
+
+  --color-background: #111317;
+  --color-foreground: #f4f5f7;
+  --color-card: rgb(255 255 255 / 0.045);
+  --color-card-strong: rgb(255 255 255 / 0.08);
+  --color-popover: #1b1e24;
+  --color-muted: rgb(255 255 255 / 0.06);
+  --color-muted-foreground: #9ea3ae;
+  --color-subtle-foreground: #6f7480;
+  --color-border: rgb(255 255 255 / 0.1);
+  --color-border-strong: rgb(255 255 255 / 0.18);
+  --color-input: rgb(255 255 255 / 0.12);
+  --color-ring: #7dd3fc;
+
+  --color-primary: #e7e9ee;
+  --color-primary-foreground: #16181d;
+  --color-accent: #7dd3fc;
+  --color-accent-foreground: #082032;
+  --color-accent-soft: rgb(125 211 252 / 0.12);
+
+  --color-success: #34d399;
+  --color-success-foreground: #06231a;
+  --color-success-soft: rgb(52 211 153 / 0.14);
+  --color-success-text: #6ee7b7;
+  --color-destructive: #f87171;
+  --color-destructive-foreground: #2a0a0a;
+  --color-destructive-soft: rgb(248 113 113 / 0.13);
+  --color-destructive-text: #fca5a5;
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgb(251 191 36 / 0.14);
+  --color-warning-text: #fcd34d;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --shadow-glow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px rgb(0 0 0 / 0.35);
+  --shadow-lift: 0 18px 40px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(125 211 252 / 0.35);
+
+  --animate-fade-up: fade-up 0.35s ease both;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html { color-scheme: dark; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgb(125 211 252 / 0.06), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgb(231 233 238 / 0.04), transparent 60%),
+      var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { letter-spacing: -0.01em; }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+  ::selection { background: rgb(125 211 252 / 0.3); }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--color-card);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -1,0 +1,1 @@
+{ "watch": ["server.js"], "ext": "js,json", "delay": 300 }

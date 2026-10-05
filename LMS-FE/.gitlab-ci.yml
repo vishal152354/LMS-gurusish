@@ -1,0 +1,64 @@
+# Pariksha frontend — GitLab CI
+# develop → staging build, main / version tags → production build.
+
+image: node:22-alpine
+
+stages:
+  - install
+  - verify
+  - build
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+cache:
+  key:
+    files: [package-lock.json]
+  paths: [.npm/]
+
+install:
+  stage: install
+  script:
+    - npm ci --no-audit --no-fund
+  artifacts:
+    paths: [node_modules/]
+    expire_in: 1 hour
+
+lint:
+  stage: verify
+  needs: [install]
+  script:
+    - npm run lint
+
+typecheck:
+  stage: verify
+  needs: [install]
+  script:
+    - npm run typecheck
+
+build:staging:
+  stage: build
+  needs: [install, lint, typecheck]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  environment:
+    name: staging
+  script:
+    - npm run build:staging
+  artifacts:
+    paths: [dist/]
+    expire_in: 1 week
+
+build:production:
+  stage: build
+  needs: [install, lint, typecheck]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  environment:
+    name: production
+  script:
+    - npm run build:production
+  artifacts:
+    paths: [dist/]
+    expire_in: 1 month

@@ -47,7 +47,8 @@ Browser (HTML/JS) ──HTTP──▶ FastAPI + Uvicorn :7860 ──▶ SQLite
 
 ```
 .
-├── viva-webapp/            # the Pariksha application
+├── LMS-FE/                 # React 19 + TypeScript frontend for the same backend (see LMS-FE/README.md)
+├── viva-webapp/            # the Pariksha application (FastAPI backend + original HTML frontend)
 │   ├── backend/
 │   │   ├── main.py         # FastAPI app, page routes, static files
 │   │   ├── routes/         # student, professor, viva, prep, audio, transcribe, orchestrator
