@@ -18,9 +18,14 @@ from .routes.prep         import router as prep_router
 
 app = FastAPI(title="Pariksha", version="1.0.0")
 
+# Comma-separated list of allowed frontend origins, e.g.
+#   CORS_ORIGINS=https://pariksha.vercel.app,https://pariksha.yourcollege.in
+# Unset (local development) allows any origin.
+_cors = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors or ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

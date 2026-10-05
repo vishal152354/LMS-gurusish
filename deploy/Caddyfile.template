@@ -1,0 +1,28 @@
+# Pariksha API — Caddy gets and renews the HTTPS certificate automatically.
+# setup-server.sh replaces __API_DOMAIN__ and writes this to /etc/caddy/Caddyfile.
+
+__API_DOMAIN__ {
+	encode zstd gzip
+
+	# course documents can be large
+	request_body {
+		max_size 25MB
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	# Question generation can take a few minutes on free models — no proxy timeout
+	reverse_proxy 127.0.0.1:7860
+
+	log {
+		output file /var/log/caddy/pariksha-api.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+	}
+}

@@ -1,0 +1,22 @@
+[Unit]
+Description=Pariksha API (FastAPI / uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pariksha
+Group=pariksha
+WorkingDirectory=/opt/pariksha/viva-webapp
+EnvironmentFile=/opt/pariksha/viva-webapp/.env
+# One worker only: live test sessions are kept in memory.
+ExecStart=/opt/pariksha/viva-webapp/venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 7860 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=always
+RestartSec=3
+# hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

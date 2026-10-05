@@ -878,10 +878,14 @@ async def export_marks(event_id: str, token: str):
         wb.save(buf)
         buf.seek(0)
         fn = f"viva_{title_str.replace(' ','_')}_{date_str}.xlsx"
+        # HTTP headers are latin-1: give an ASCII fallback plus the RFC 5987 UTF-8 name,
+        # otherwise titles like "Ohm’s law" or non-English titles crash the export.
+        from urllib.parse import quote
+        ascii_fn = re.sub(r"[^A-Za-z0-9._-]", "_", fn)
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={fn}"},
+            headers={"Content-Disposition": f"attachment; filename=\"{ascii_fn}\"; filename*=UTF-8''{quote(fn)}"},
         )
 
     except ImportError:

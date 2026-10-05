@@ -48,6 +48,7 @@ Browser (HTML/JS) ──HTTP──▶ FastAPI + Uvicorn :7860 ──▶ SQLite
 ```
 .
 ├── LMS-FE/                 # React 19 + TypeScript frontend for the same backend (see LMS-FE/README.md)
+├── deploy/                 # Vercel + Caddy deployment: setup script, systemd service, backups
 ├── viva-webapp/            # the Pariksha application (FastAPI backend + original HTML frontend)
 │   ├── backend/
 │   │   ├── main.py         # FastAPI app, page routes, static files
@@ -132,6 +133,8 @@ Open **http://localhost:7860**.
 ---
 
 ## Deployment
+
+**Recommended: React app on Vercel + backend on a server behind Caddy.** The full guide, setup script, systemd service and backups are in [`deploy/`](deploy/README.md).
 
 Run it on one server (2 GB RAM is enough) behind a reverse proxy that provides HTTPS, for example [Caddy](https://caddyserver.com):
 

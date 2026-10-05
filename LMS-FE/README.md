@@ -76,6 +76,10 @@ src/
 test-server/          notification test server
 ```
 
+## Deployment
+
+Vercel hosts this app (`vercel.json` is included); the FastAPI backend runs on a server behind Caddy. Step-by-step guide: [`../deploy/README.md`](../deploy/README.md).
+
 ## Notes
 
 - **Notifications** — the FastAPI backend doesn't emit any yet; `test-server/` simulates them. To go live, have the backend `POST /notify` to a server like it.
