@@ -134,24 +134,9 @@ Open **http://localhost:7860**.
 
 ## Deployment
 
-**Recommended: React app on Vercel + backend on a server behind Caddy.** The full guide, setup script, systemd service and backups are in [`deploy/`](deploy/README.md).
+**Recommended: the React app (`LMS-FE/`) on Vercel, the backend on one small server behind Caddy.** The step-by-step guide, setup script, systemd service and backups are in [`deploy/`](deploy/README.md).
 
-Run it on one server (2 GB RAM is enough) behind a reverse proxy that provides HTTPS, for example [Caddy](https://caddyserver.com):
-
-```
-pariksha.example.edu {
-    reverse_proxy 127.0.0.1:7860
-}
-```
-
-Keep a persistent disk for the database and uploads, and back them up regularly.
-
-Before a real deployment:
-- Set a strong `PROFESSOR_PASSWORD` and `TOKEN_SECRET`.
-- Never commit `.env` — it is in `.gitignore`.
-- Student login is roll number + name only; add a PIN or OTP if impersonation is a concern.
+- Run **one** backend process (live tests are held in memory) with a persistent disk for the database and uploads.
+- Give the API its own subdomain (e.g. `api.pariksha.example.edu`) and allow the frontend's address via `CORS_ORIGINS`.
+- Before a real deployment: set a strong `PROFESSOR_PASSWORD` and `TOKEN_SECRET`, never commit `.env`, and remember student login is roll number + name only.
 - Free LLM tiers are rate-limited; a paid model such as Gemini 2.5 Flash costs roughly $0.01–0.03 per generated test.
-
----
-
-
