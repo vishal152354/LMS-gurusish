@@ -1,0 +1,29 @@
+# Netlify — set "Base directory" to LMS-FE in the site settings; Netlify then
+# reads this file. Set VITE_API_BASE_URL under Site configuration →
+# Environment variables (it overrides .env.production).
+
+[build]
+  command = "npm run build:production"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Single-page app: every route (e.g. /professor/results) is served by index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Hashed build assets never change — cache them for a year
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"

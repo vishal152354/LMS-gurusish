@@ -62,6 +62,16 @@ You need:
 
 `vercel.json` serves `index.html` for every route (so refreshing `/professor/results` works) and caches the hashed assets for a year.
 
+### Alternative: Netlify (free)
+
+1. app.netlify.com → **Add new site → Import an existing project** → GitHub → `vishal152354/LMS-gurusish`.
+2. **Branch to deploy:** `DEV` (or `main`). **Base directory:** `LMS-FE`. The build command (`npm run build:production`), publish directory (`dist`), Node 22, page-refresh redirects and caching all come from `LMS-FE/netlify.toml`. Leave those fields as Netlify fills them.
+3. **Environment variables → Add a variable:** `VITE_API_BASE_URL` = `https://api.pariksha.example.edu`.
+4. **Deploy.** You get `https://<name>.netlify.app`; rename it under **Site configuration → Change site name**.
+5. Add that address to `CORS_ORIGINS` on the server and run `sudo systemctl restart pariksha-api`.
+
+Environment variables are read at **build** time, so after changing one, use **Deploys → Trigger deploy → Clear cache and deploy site**.
+
 ## 3. Day-to-day
 
 | Task | Command (on the server) |

@@ -78,7 +78,7 @@ test-server/          notification test server
 
 ## Deployment
 
-Vercel hosts this app (`vercel.json` is included); the FastAPI backend runs on a server behind Caddy. Step-by-step guide: [`../deploy/README.md`](../deploy/README.md).
+Vercel or Netlify hosts this app (`vercel.json` and `netlify.toml` are included); the FastAPI backend runs on a server behind Caddy. Step-by-step guide: [`../deploy/README.md`](../deploy/README.md).
 
 ## Notes
 
