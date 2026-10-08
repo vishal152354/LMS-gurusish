@@ -15,9 +15,11 @@ The Pariksha AI viva & assessment portal rebuilt as a React single-page app. It 
 
 ## Features
 
-**Students** — sign in with roll number + name · *My tests* (to do / completed) · full-screen test with tab-switch monitoring · **drag the correct option into the answer box** (or tap it / press A–D), Submit, then an explanation card · results with an answer donut and a question-by-question review.
+**Students** — sign in with roll number + name · *My tests* (to do / completed) · full-screen test with tab-switch monitoring · three question types: **multiple choice** (drag the right option into the answer box, tap it, or press A–D), **fill in the blank** (type into the gap; small spelling slips are accepted) and **match the following** (drag or tap cards onto their items; partial marks per correct pair) · **answers and the score are revealed only after the last question** — the backend sends no correctness until then · results with an answer donut and a question-by-question review.
 
-**Professors** — content upload with live processing progress, rename, delete · create tests with a live question-generation progress bar and date picker · roster CSV upload · results with status filters, per-student answer charts and Excel export · live monitor · notification bell · profile photo with cropping · automatic sign-out after inactivity (with a 60-second warning).
+**Professors** — content upload with live processing progress, rename, delete · create tests by choosing **how many of each question type** (MCQ, fill in the blanks, match the following); the paper is generated from the knowledge graph in parallel batches, usually in under 30 seconds, with a live batch-by-batch progress bar · roster CSV upload · results with status filters, per-student answer charts (match pairs shown pair by pair) and Excel export · live monitor · notification bell · profile photo with cropping · automatic sign-out after inactivity.
+
+**Ellie, the guide** — an animated elephant who walks users through every page with a spotlight tour the first time they visit (sign-in, tests, each question type, results, and every professor step). She cheers students on between questions without ever hinting at answers. The elephant button (bottom right) replays a page's tour, replays all tours, or turns Ellie off. Tours skip anything not on screen, support the keyboard (← → Esc) and respect reduced-motion settings.
 
 ## Getting started
 

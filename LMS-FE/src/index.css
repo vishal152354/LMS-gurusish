@@ -89,3 +89,32 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── Ellie, the elephant guide ─────────────────────────────── */
+.ellie { overflow: visible; }
+.ellie * { transform-box: fill-box; }
+.ellie-body { transform-origin: 50% 100%; animation: ellie-bob 3.2s ease-in-out infinite; }
+.ellie-ear { transform-origin: 20% 30%; animation: ellie-ear 4s ease-in-out infinite; }
+.ellie-trunk { transform-origin: 90% 10%; }
+.ellie-eye { transform-origin: 50% 50%; animation: ellie-blink 4.6s infinite; }
+.ellie-cap { transform-origin: 50% 100%; }
+.ellie-stars { opacity: 0; transform-origin: 50% 50%; }
+.ellie-talk .ellie-trunk { animation: ellie-trunk 0.9s ease-in-out infinite; }
+.ellie-talk .ellie-ear { animation-duration: 1.2s; }
+.ellie-cheer .ellie-body { animation: ellie-jump 0.7s cubic-bezier(.3,1.6,.5,1) 3; }
+.ellie-cheer .ellie-trunk { transform: rotate(-38deg); transition: transform .3s; }
+.ellie-cheer .ellie-stars { animation: ellie-stars 1.4s ease-out 2; }
+.ellie-think .ellie-body { transform: rotate(-4deg); animation: none; }
+.ellie-pop { animation: ellie-pop 0.55s cubic-bezier(.3,1.5,.5,1) both; }
+
+@keyframes ellie-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes ellie-ear { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-9deg); } 86% { transform: rotate(4deg); } }
+@keyframes ellie-trunk { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-16deg); } }
+@keyframes ellie-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
+@keyframes ellie-jump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px) rotate(-3deg); } }
+@keyframes ellie-stars { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.25) translateY(-6px); } }
+@keyframes ellie-pop { 0% { opacity: 0; transform: translateY(24px) scale(.6); } 100% { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ellie *, .ellie-pop { animation: none !important; }
+}

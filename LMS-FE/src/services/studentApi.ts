@@ -1,5 +1,5 @@
 import { http } from './http'
-import type { AnswerResponse, JoinResponse, StartTestResponse, StoredResult, StudentTest } from '@/types/api'
+import type { AnswerInput, AnswerResponse, JoinResponse, StartTestResponse, StoredResult, StudentTest } from '@/types/api'
 
 export const studentApi = {
   join: (roll_number: string, name: string) =>
@@ -11,8 +11,8 @@ export const studentApi = {
   startTest: (student_id: string, upload_id: string, event_id: string) =>
     http.post<StartTestResponse>('/student/viva/start', { student_id, upload_id, event_id }, { timeout: 90_000 }).then((r) => r.data),
 
-  answer: (session_id: string, letter: string) =>
-    http.post<AnswerResponse>(`/student/viva/answer/${session_id}`, { answer_text: letter }).then((r) => r.data),
+  answer: (session_id: string, input: AnswerInput) =>
+    http.post<AnswerResponse>(`/student/viva/answer/${session_id}`, input).then((r) => r.data),
 
   logIntegrity: (session_id: string, event_type: string) =>
     http.post<{ warning_count: number; flagged: boolean }>(`/student/viva/integrity/${session_id}`, {

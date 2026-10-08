@@ -7,6 +7,7 @@ import { QuestionReview, type ReviewItem } from '@/components/QuestionReview'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
 import { studentApi } from '@/services/studentApi'
 import { useAppSelector } from '@/store'
@@ -26,10 +27,16 @@ interface View {
   when: string | null
 }
 
+// works for every question type, and for older MCQ-only attempts
+const chosenOf = (q: QuestionLogEntry) =>
+  q.student_answer !== undefined ? q.student_answer : q.selected_index != null && q.options ? q.options[q.selected_index] : null
+const unansweredIn = (log: QuestionLogEntry[]) => log.filter((q) => !q.is_correct && chosenOf(q) == null).length
+
 const toReview = (log: QuestionLogEntry[]): ReviewItem[] => log.map((q) => ({
-  number: q.question_number, question: q.question,
-  chosen: q.selected_index != null ? q.options[q.selected_index] : null,
-  correct_option: q.correct_option, is_correct: q.is_correct, explanation: q.explanation,
+  number: q.question_number, type: q.type ?? 'mcq', question: q.question,
+  chosen: chosenOf(q), correct_option: q.correct_answer ?? q.correct_option,
+  is_correct: q.is_correct, explanation: q.explanation,
+  marks: q.marks_awarded, maxMarks: q.max_marks ?? null, pairs: q.pairs ?? null,
 }))
 
 export default function ResultPage() {
@@ -39,13 +46,14 @@ export default function ResultPage() {
   const saved = useAppSelector((s) => s.results.byEvent[eventId])
   const [view, setView] = useState<View | null>(null)
   const [error, setError] = useState<string | null>(null)
+  useTour('student-result', !!view)
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       // 1) Finished on this device — full detail is already here
       if (saved) {
-        const unanswered = saved.question_log.filter((q) => q.selected_index == null).length
+        const unanswered = unansweredIn(saved.question_log)
         setView({
           title: saved.title ?? saved.filename, marks: saved.final_marks, maxMarks: saved.max_marks, grade: saved.grade,
           comment: saved.feedback, improve: saved.areas_to_improve,
@@ -69,12 +77,12 @@ export default function ResultPage() {
         ])
         if (cancelled) return
         const test = tests.find((t) => t.event_id === eventId)
-        const maxMarks = test?.max_marks ?? null
+        const maxMarks = res.max_marks ?? test?.max_marks ?? null
         const mpq = test && test.num_questions ? test.max_marks / test.num_questions : 1
         const log = res.question_log ?? []
         const correct = log.length ? log.filter((q) => q.is_correct).length : Math.round(res.final_marks / mpq)
         const total = log.length || test?.num_questions || correct
-        const unanswered = log.filter((q) => q.selected_index == null).length
+        const unanswered = unansweredIn(log)
         setView({
           title: test?.title ?? res.filename, marks: res.final_marks, maxMarks, grade: res.grade,
           comment: res.overall_comment, improve: res.areas_to_improve ?? [],
@@ -98,7 +106,7 @@ export default function ResultPage() {
 
       {view && (
         <div className="mt-4 flex flex-col gap-5 animate-fade-up">
-          <Card>
+          <Card data-tour="result-score">
             <CardContent className="flex flex-col gap-6 p-7 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Test complete</p>
@@ -135,7 +143,7 @@ export default function ResultPage() {
             </Card>
           )}
 
-          <Card>
+          <Card data-tour="result-review">
             <CardHeader><CardTitle>Question by question</CardTitle></CardHeader>
             <CardContent>
               {view.review ? <QuestionReview items={view.review} /> : (

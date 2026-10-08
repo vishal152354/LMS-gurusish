@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fromUtc } from '@/lib/utils'
+import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
 import { professorApi } from '@/services/professorApi'
 import { useAppSelector } from '@/store'
@@ -19,6 +20,7 @@ export default function RosterPage() {
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [warning, setWarning] = useState<string | null>(null)
+  useTour('prof-roster', !!eventId)
 
   const load = useCallback(async () => {
     if (!eventId) return
@@ -51,7 +53,7 @@ export default function RosterPage() {
       {eventId && (
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
           <div className="flex flex-col gap-4">
-            <FileDropzone accept=".csv" hint="CSV with a roll_number column" disabled={uploading} onFile={upload} />
+            <FileDropzone accept=".csv" hint="CSV with a roll_number column" disabled={uploading} onFile={upload} tour="roster-drop" />
             {warning && (
               <div className="flex gap-3 rounded-lg border border-warning/30 bg-warning-soft p-4 text-sm text-warning-text">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" /><p>{warning}</p>

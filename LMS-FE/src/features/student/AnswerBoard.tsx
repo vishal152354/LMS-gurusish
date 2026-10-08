@@ -105,7 +105,7 @@ export function AnswerBoard({ options, locked, reveal, submitting, keyboardEnabl
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragOver={onDragOver}
       onDragEnd={onDragEnd} onDragCancel={() => { setDragging(null); setOverSlot(false) }}>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" data-tour="answer-area">
         <Slot
           chosen={chosen}
           option={chosen !== null ? options[chosen] : null}
@@ -139,8 +139,8 @@ export function AnswerBoard({ options, locked, reveal, submitting, keyboardEnabl
         {!reveal && (
           <div className="mt-1 flex justify-end">
             <Button size="lg" className="w-full sm:w-auto" disabled={chosen === null || locked} loading={submitting}
-              onClick={() => chosen !== null && onSubmit(chosen)}>
-              {submitting ? 'Checking…' : 'Submit answer'}
+              onClick={() => chosen !== null && onSubmit(chosen)} data-tour="submit-answer">
+              {submitting ? 'Saving…' : 'Submit answer'}
             </Button>
           </div>
         )}

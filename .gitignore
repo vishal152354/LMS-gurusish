@@ -36,3 +36,6 @@ backend/.env
 *.db
 server.log
 viva-webapp/data/
+
+# local link to a shared Python environment
+viva-webapp/venv

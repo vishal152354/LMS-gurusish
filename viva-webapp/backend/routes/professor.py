@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from ..database.db import get_conn
 from ..services.okf_pipeline import run_pipeline, get_pipeline_status
 from ..services.hermes_client import hermes_client
+from ..services import question_gen
 
 router = APIRouter(prefix="/professor", tags=["professor"])
 
@@ -182,8 +183,10 @@ class CreateEventRequest(BaseModel):
     progress_id:        Optional[str] = None   # lets the UI poll generation progress
     upload_id:          str
     title:              str
-    num_questions:      int = 10   # how many MCQs on this test
-    marks_per_question: int = 1    # marks awarded for each correct answer
+    num_questions:      int = 10   # legacy: MCQs only, used when question_types is absent
+    # how many of each type, e.g. {"mcq": 5, "fill_blank": 3, "match": 2}
+    question_types:     Optional[dict] = None
+    marks_per_question: int = 1    # marks awarded per question (match: shared across its pairs)
     event_date:         Optional[str] = None   # legacy (slots) — unused in the roster model
     start_time:         Optional[str] = None
     end_time:           Optional[str] = None
@@ -194,7 +197,12 @@ class CreateEventRequest(BaseModel):
 async def create_event(token: str, req: CreateEventRequest):
     prof = _auth(token)
 
-    num_questions      = max(1, min(50, req.num_questions))
+    if req.question_types:
+        counts = {t: max(0, min(30, int(req.question_types.get(t, 0) or 0))) for t in question_gen.TYPES}
+    else:
+        counts = {"mcq": max(1, min(50, req.num_questions)), "fill_blank": 0, "match": 0}
+    if not 1 <= sum(counts.values()) <= 50:
+        raise HTTPException(400, "Choose between 1 and 50 questions in total.")
     marks_per_question = max(1, min(100, req.marks_per_question))
     pid = req.progress_id
     _set_event_progress(pid, "reading")
@@ -230,9 +238,13 @@ async def create_event(token: str, req: CreateEventRequest):
         if sp.exists():
             summary = sp.read_text()
 
-    questions = await hermes_client.generate_mcq_quiz(
-        graph, summary, "Student", num_questions=num_questions,
-        on_progress=lambda stage, attempt: _set_event_progress(pid, stage, attempt),
+    # The concept notes themselves are the best source; the summary also holds
+    # outline text (node ids, "suggested viva path") that leads to questions about the document.
+    from ..services.prep_service import _load_source_text
+    source = _load_source_text(dict(upload)) or summary
+    questions = await question_gen.generate_paper(
+        hermes_client, graph, source, counts,
+        on_progress=lambda stage, info: _set_event_progress(pid, stage, 0, **info),
     )
     if not questions:
         _set_event_progress(pid, "failed")
@@ -240,6 +252,7 @@ async def create_event(token: str, req: CreateEventRequest):
         raise HTTPException(502, "Could not generate questions from this content. Please try again.")
 
     _set_event_progress(pid, "saving")
+    made = {t: sum(1 for q in questions if question_gen.qtype(q) == t) for t in question_gen.TYPES}
     event_id     = str(uuid.uuid4())
     now          = datetime.utcnow().isoformat()
     max_students = max(1, min(200, req.max_students))
@@ -247,11 +260,11 @@ async def create_event(token: str, req: CreateEventRequest):
     conn.execute(
         """INSERT INTO viva_events
            (id,professor_id,upload_id,title,event_date,start_time,end_time,status,max_students,
-            num_questions,marks_per_question,questions_json,created_at)
-           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?)""",
+            num_questions,marks_per_question,questions_json,question_types,created_at)
+           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?)""",
         (event_id, prof["id"], req.upload_id, req.title,
          req.event_date or now[:10], req.start_time or "", req.end_time or "", max_students,
-         len(questions), marks_per_question, json.dumps(questions), now),
+         len(questions), marks_per_question, json.dumps(questions), json.dumps(made), now),
     )
     conn.commit()
     conn.close()
@@ -259,9 +272,22 @@ async def create_event(token: str, req: CreateEventRequest):
     return {
         "event_id":           event_id,
         "num_questions":      len(questions),
+        "question_types":     made,
+        "requested":          counts,
         "marks_per_question": marks_per_question,
         "total_marks":        len(questions) * marks_per_question,
     }
+
+
+def _types_of(e) -> dict:
+    """Question-type counts for an event (older events are all MCQ)."""
+    try:
+        if "question_types" in e.keys() and e["question_types"]:
+            return json.loads(e["question_types"])
+    except Exception:
+        pass
+    n = e["num_questions"] if "num_questions" in e.keys() and e["num_questions"] else 10
+    return {"mcq": n, "fill_blank": 0, "match": 0}
 
 
 @router.get("/events")
@@ -293,6 +319,7 @@ async def list_events(token: str):
             "status":       e["status"],
             "max_students": e["max_students"] if "max_students" in e.keys() else 10,
             "num_questions":      e["num_questions"] if "num_questions" in e.keys() and e["num_questions"] else 10,
+            "question_types":     _types_of(e),
             "marks_per_question": e["marks_per_question"] if "marks_per_question" in e.keys() and e["marks_per_question"] else 1,
             "roster_count": roster_count,
             "completed":    done,
@@ -601,19 +628,28 @@ async def get_event_results(event_id: str, token: str):
             except Exception:
                 qlog = []
             if qlog:
+                def _chosen(q):
+                    if "student_answer" in q:          # current log format, any question type
+                        return q.get("student_answer")
+                    if q.get("selected_index") is not None and q.get("options"):
+                        return q["options"][q["selected_index"]]
+                    return None
                 correct_n    = sum(1 for q in qlog if q.get("is_correct"))
-                unanswered_n = sum(1 for q in qlog if q.get("selected_index") is None)
+                unanswered_n = sum(1 for q in qlog if not q.get("is_correct") and _chosen(q) is None)
                 breakdown = {
                     "correct": correct_n,
                     "wrong": len(qlog) - correct_n - unanswered_n,
                     "unanswered": unanswered_n,
                     "questions": [{
                         "number":   q.get("question_number"),
+                        "type":     q.get("type", "mcq"),
                         "question": q.get("question", ""),
-                        "chosen":   (q["options"][q["selected_index"]]
-                                     if q.get("selected_index") is not None and q.get("options") else None),
-                        "correct_option": q.get("correct_option", ""),
+                        "chosen":   _chosen(q),
+                        "correct_option": q.get("correct_answer") or q.get("correct_option", ""),
                         "is_correct": bool(q.get("is_correct")),
+                        "marks_awarded": q.get("marks_awarded"),
+                        "max_marks": q.get("max_marks"),
+                        "pairs":    q.get("pairs"),
                     } for q in qlog],
                 }
             elif isinstance(tot, (int, float)):

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, ArrowRight, CheckCircle2, Maximize, ShieldAlert, Timer, XCircle } from 'lucide-react'
+import { AlertTriangle, ListChecks, Maximize, PenLine, Shuffle, ShieldAlert, Timer } from 'lucide-react'
 import { toast } from 'sonner'
 import { Brand } from '@/components/Brand'
 import { Badge } from '@/components/ui/badge'
@@ -8,18 +8,31 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
+import { useGuide, useTour } from '@/features/guide/guideContext'
+import { Elephant } from '@/features/guide/Elephant'
 import { exitFullscreen, useIntegrityGuard } from '@/hooks/useIntegrityGuard'
-import { cn } from '@/lib/utils'
 import { apiError } from '@/services/http'
 import { studentApi } from '@/services/studentApi'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { resultSaved } from '@/store/resultsSlice'
-import type { AnswerResponse, Flashcard, StudentTest } from '@/types/api'
-import { AnswerBoard, type Reveal } from './AnswerBoard'
+import type { AnswerInput, QuestionView, StartTestResponse, StudentTest } from '@/types/api'
+import { AnswerBoard } from './AnswerBoard'
+import { FillBlankBoard } from './FillBlankBoard'
+import { MatchBoard } from './MatchBoard'
 
-type Phase = 'ready' | 'starting' | 'question' | 'feedback' | 'finishing' | 'error'
+type Phase = 'ready' | 'starting' | 'question' | 'finishing' | 'error'
 
-interface QuestionState { number: number; text: string; options: string[] }
+const TYPE_META = {
+  mcq: { label: 'Multiple choice', icon: ListChecks, tour: 'test-mcq' },
+  fill_blank: { label: 'Fill in the blank', icon: PenLine, tour: 'test-fill' },
+  match: { label: 'Match the following', icon: Shuffle, tour: 'test-match' },
+} as const
+
+const CHEERS = ['Saved!', 'Got it!', 'Nice going!', 'Saved — keep it up!', 'On to the next one!']
+
+// Older backends only sent first_question_text + options
+const viewOf = (r: StartTestResponse): QuestionView =>
+  r.question ?? { type: 'mcq', question: r.first_question_text, options: r.options }
 
 export default function TakeTestPage() {
   const { eventId = '' } = useParams()
@@ -29,31 +42,29 @@ export default function TakeTestPage() {
   const student = useAppSelector((s) => s.auth.student)!
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const guide = useGuide()
 
   const [phase, setPhase] = useState<Phase>('ready')
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [question, setQuestion] = useState<QuestionState | null>(null)
+  const [question, setQuestion] = useState<QuestionView | null>(null)
+  const [number, setNumber] = useState(1)
   const [total, setTotal] = useState(test?.num_questions ?? 0)
-  const [maxMarks, setMaxMarks] = useState(test?.max_marks ?? 0)
-  const [score, setScore] = useState(0)
   const [submitting, setSubmitting] = useState(false)
-  const [reveal, setReveal] = useState<Reveal | null>(null)
-  const [card, setCard] = useState<Flashcard | null>(null)
-  const pending = useRef<AnswerResponse | null>(null)
   const [elapsed, setElapsed] = useState(0)
 
   const integrity = useIntegrityGuard(sessionId)
-  const inProgress = phase === 'question' || phase === 'feedback'
+  const inProgress = phase === 'question'
 
-  // timer
+  // Ellie: the intro tour before starting, then a short tour the first time each question type appears
+  useTour(question ? TYPE_META[question.type].tour : 'test-intro', phase === 'ready' || phase === 'question')
+
   useEffect(() => {
     if (!inProgress) return
     const t = window.setInterval(() => setElapsed((s) => s + 1), 1000)
     return () => window.clearInterval(t)
   }, [inProgress])
 
-  // warn before leaving mid-test
   useEffect(() => {
     if (!inProgress) return
     const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault() }
@@ -71,9 +82,10 @@ export default function TakeTestPage() {
       const r = await studentApi.startTest(student.id, uploadId, eventId)
       setSessionId(r.session_id)
       setTotal(r.total_questions)
-      setMaxMarks(r.total_marks)
-      setQuestion({ number: r.question_number, text: r.first_question_text, options: r.options })
+      setNumber(r.question_number)
+      setQuestion(viewOf(r))
       setPhase('question')
+      guide.say('Let’s go! You’ve got this.', 'cheer', 2200)
     } catch (e) {
       exitFullscreen()
       setError(apiError(e))
@@ -81,42 +93,43 @@ export default function TakeTestPage() {
     }
   }
 
-  async function submit(index: number) {
+  async function submit(input: AnswerInput) {
     if (!sessionId || submitting) return
     setSubmitting(true)
     try {
-      const r = await studentApi.answer(sessionId, String.fromCharCode(65 + index))
-      pending.current = r
-      setReveal({ correct: r.correct_index, chosen: index })
-      setScore(r.viva_complete ? r.final_marks : r.score_so_far)
-      setCard(r.flashcard)
-      setPhase('feedback')
+      const r = await studentApi.answer(sessionId, input)
+      if (r.viva_complete) {
+        setPhase('finishing')
+        dispatch(resultSaved({ eventId, result: r, title: test?.title }))
+        exitFullscreen()
+        window.setTimeout(() => navigate(`/student/result/${eventId}?upload=${encodeURIComponent(uploadId)}`, { replace: true }), 1800)
+        return
+      }
+      const left = r.total_questions - r.question_number + 1
+      guide.say(`${CHEERS[r.answered % CHEERS.length]} ${left} to go.`, 'talk', 1800)
+      setQuestion(r.question)
+      setNumber(r.question_number)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
-      toast.error('Answer not submitted', { description: apiError(e) })
+      toast.error('Answer not saved', { description: apiError(e) })
     } finally {
       setSubmitting(false)
     }
   }
 
-  function next() {
-    const r = pending.current
-    if (!r) return
-    setCard(null)
-    if (r.viva_complete) {
-      setPhase('finishing')
-      dispatch(resultSaved({ eventId, result: r, title: test?.title }))
-      exitFullscreen()
-      navigate(`/student/result/${eventId}?upload=${encodeURIComponent(uploadId)}`, { replace: true })
-      return
-    }
-    setReveal(null)
-    setQuestion({ number: r.question_number, text: r.next_question_text, options: r.options })
-    setPhase('question')
-  }
-
-  const answered = question ? question.number - (phase === 'feedback' ? 0 : 1) : 0
-  const pct = total ? (answered / total) * 100 : 0
+  const pct = total ? ((number - 1) / total) * 100 : 0
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`
+
+  // ── finished: Ellie celebrates while the result loads ───────
+  if (phase === 'finishing') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center" role="status">
+        <Elephant mood="cheer" size={150} className="ellie-pop" />
+        <h1 className="font-display text-3xl font-semibold">All done!</h1>
+        <p className="text-muted-foreground">Ellie is adding up your answers…</p>
+      </div>
+    )
+  }
 
   // ── pre-start / error screens ──────────────────────────────
   if (phase === 'ready' || phase === 'starting' || phase === 'error') {
@@ -139,10 +152,12 @@ export default function TakeTestPage() {
                   <h1 className="font-display text-2xl font-semibold">{test?.title ?? 'Your test'}</h1>
                   {test && <p className="mt-1 text-sm text-muted-foreground tabular">{test.num_questions} questions · {test.max_marks} marks</p>}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  The test opens full-screen. For each question, drag the correct option into the answer box (or tap it) and press <strong className="text-foreground">Submit answer</strong>.
-                </p>
-                <Button size="lg" onClick={start} loading={phase === 'starting'}>
+                <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+                  <li>• The test opens full-screen.</li>
+                  <li>• Questions can be multiple choice, fill in the blank, or match the following.</li>
+                  <li>• <span className="font-semibold text-foreground">Your score and the answers appear only at the end</span>, after the last question.</li>
+                </ul>
+                <Button size="lg" onClick={start} loading={phase === 'starting'} data-tour="test-start">
                   <Maximize />{phase === 'starting' ? 'Preparing your paper…' : 'Start test'}
                 </Button>
                 <Button variant="ghost" onClick={() => navigate('/student')} disabled={phase === 'starting'}>Cancel</Button>
@@ -154,16 +169,18 @@ export default function TakeTestPage() {
     )
   }
 
+  const meta = question ? TYPE_META[question.type] : TYPE_META.mcq
+  const TypeIcon = meta.icon
+
   // ── test in progress ──────────────────────────────────────
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-4 px-4">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{test?.title ?? 'Test'}</div>
-            <div className="text-xs text-muted-foreground tabular">Question {question?.number} of {total}</div>
+            <div className="text-xs text-muted-foreground tabular">Question {number} of {total}</div>
           </div>
-          <Badge variant="accent" className="tabular">{score} / {maxMarks} marks</Badge>
           <span className="flex items-center gap-1.5 text-sm text-muted-foreground tabular" aria-label={`Time elapsed ${mmss}`}>
             <Timer className="size-4" />{mmss}
           </span>
@@ -173,7 +190,7 @@ export default function TakeTestPage() {
             </Badge>
           )}
         </div>
-        <Progress value={pct} className="h-1 rounded-none" />
+        <Progress value={pct} className="h-1 rounded-none" aria-label="Test progress" />
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-8">
@@ -185,64 +202,42 @@ export default function TakeTestPage() {
         )}
 
         {question && (
-          <div key={question.number} className="animate-fade-up">
-            <Card>
+          <div key={number} className="animate-fade-up">
+            <Card data-tour="question-card">
               <CardContent className="p-6 sm:p-7">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground tabular">Question {question.number} of {total}</p>
-                <h2 className="mt-3 text-lg font-semibold leading-relaxed sm:text-xl">{question.text}</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground tabular">Question {number} of {total}</p>
+                  <Badge variant="accent"><TypeIcon className="size-3" />{meta.label}</Badge>
+                </div>
+                {question.type !== 'fill_blank' && (
+                  <h2 className="mt-3 text-lg font-semibold leading-relaxed sm:text-xl">{question.question}</h2>
+                )}
+                {question.type === 'fill_blank' && (
+                  <h2 className="mt-3 text-base font-semibold text-muted-foreground">Complete the sentence:</h2>
+                )}
               </CardContent>
             </Card>
             <div className="mt-5">
-              <AnswerBoard
-                options={question.options}
-                locked={submitting || phase !== 'question'}
-                reveal={reveal}
-                submitting={submitting}
-                keyboardEnabled={phase === 'question' && !integrity.showWarning}
-                onSubmit={submit}
-              />
+              {question.type === 'mcq' && (
+                <AnswerBoard options={question.options} locked={submitting} reveal={null} submitting={submitting}
+                  keyboardEnabled={!integrity.showWarning && !guide.touring}
+                  onSubmit={(i) => submit({ answer_text: String.fromCharCode(65 + i) })} />
+              )}
+              {question.type === 'fill_blank' && (
+                <FillBlankBoard question={question.question} locked={submitting} submitting={submitting}
+                  onSubmit={(text) => submit({ answer_text: text })} />
+              )}
+              {question.type === 'match' && (
+                <MatchBoard left={question.left} right={question.right} locked={submitting} submitting={submitting}
+                  onSubmit={(picks) => submit({ match: picks })} />
+              )}
             </div>
           </div>
         )}
       </main>
 
-      {/* feedback card after each answer */}
-      <Dialog open={!!card} onOpenChange={() => {}}>
-        <DialogContent hideClose onEscapeKeyDown={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}
-          onOpenAutoFocus={(e) => { e.preventDefault(); (document.getElementById('fc-next') as HTMLButtonElement | null)?.focus() }}>
-          {card && (
-            <>
-              <DialogHeader>
-                <div aria-hidden="true" className={cn('flex items-center gap-2 text-sm font-bold uppercase tracking-wide', card.was_correct ? 'text-success-text' : 'text-destructive-text')}>
-                  {card.was_correct ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
-                  {card.was_correct ? 'Correct' : 'Incorrect'}
-                </div>
-                <DialogTitle className="sr-only">{card.was_correct ? 'Correct' : 'Incorrect'}</DialogTitle>
-                <DialogDescription className="sr-only">Correct answer and explanation</DialogDescription>
-              </DialogHeader>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Correct answer</p>
-              <p className="mt-2 flex items-start gap-3 text-[15px] font-medium">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-success text-xs font-bold text-success-foreground">{card.correct_letter}</span>
-                {card.correct_option}
-              </p>
-              {card.explanation && (
-                <>
-                  <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Why</p>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{card.explanation}</p>
-                </>
-              )}
-              <DialogFooter>
-                <Button id="fc-next" size="lg" onClick={next} className="w-full sm:w-auto">
-                  {pending.current?.viva_complete ? 'See my result' : 'Next question'}<ArrowRight />
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* integrity warning */}
-      <Dialog open={integrity.showWarning && !card} onOpenChange={(o) => !o && integrity.dismissWarning()}>
+      <Dialog open={integrity.showWarning} onOpenChange={(o) => !o && integrity.dismissWarning()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ShieldAlert className="size-5 text-warning" />Stay on the test</DialogTitle>

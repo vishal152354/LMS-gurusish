@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
 import { professorApi } from '@/services/professorApi'
 import { useAppSelector } from '@/store'
@@ -28,6 +29,7 @@ export default function ResultsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
   const [open, setOpen] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  useTour('prof-results', !!rows?.length)
 
   const load = useCallback(async (quiet = false) => {
     if (!eventId) return
@@ -58,7 +60,7 @@ export default function ResultsPage() {
         actions={eventId && (
           <>
             <Button variant="outline" size="sm" onClick={() => load(true)} loading={refreshing}><RefreshCw />Refresh</Button>
-            <Button size="sm" asChild><a href={professorApi.exportUrl(eventId, token)} download><Download />Export Excel</a></Button>
+            <Button size="sm" asChild><a href={professorApi.exportUrl(eventId, token)} download data-tour="results-export"><Download />Export Excel</a></Button>
           </>
         )}
       />
@@ -83,7 +85,7 @@ export default function ResultsPage() {
             ))}
           </div>
 
-          <Card className="mt-4 overflow-hidden">
+          <Card className="mt-4 overflow-hidden" data-tour="results-table">
             {!rows ? (
               <div className="flex flex-col gap-2 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-10" />)}</div>
             ) : shown.length === 0 ? (
@@ -128,7 +130,9 @@ export default function ResultsPage() {
                                   marks={`${r.total} / ${r.max_marks}`} size={140} />
                                 <div className="max-h-80 overflow-y-auto pr-1">
                                   {r.breakdown.questions ? (
-                                    <QuestionReview items={r.breakdown.questions} />
+                                    <QuestionReview items={r.breakdown.questions.map((q) => ({
+                                      ...q, marks: q.marks_awarded ?? null, maxMarks: q.max_marks ?? null,
+                                    }))} />
                                   ) : (
                                     <p className="text-sm text-muted-foreground">Question-by-question answers weren’t saved for this attempt — it was taken before answer tracking was added.</p>
                                   )}

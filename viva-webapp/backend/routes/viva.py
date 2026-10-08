@@ -17,6 +17,7 @@ from ..database.db import get_conn
 from ..services.hermes_client import hermes_client
 from ..services.tts_service import synthesize
 from ..services import orchestrator as orch
+from ..services import question_gen
 
 router = APIRouter(prefix="/student/viva", tags=["viva"])
 
@@ -306,12 +307,21 @@ async def start_viva(req: StartRequest):
     total_q = len(mcq_questions)
     total_marks = total_q * marks_per_question
     opening_line = (
-        f"Multiple-choice test — {total_q} questions, {marks_per_question} "
+        f"Test — {total_q} questions, {marks_per_question} "
         f"mark{'s' if marks_per_question != 1 else ''} each ({total_marks} total). "
-        f"Select the best answer for each question."
+        f"Answers and your score are shown after the last question."
     )
+    # Each student sees the match-the-following right column in its own order
+    right_orders = {}
+    for i, q in enumerate(mcq_questions):
+        if question_gen.qtype(q) == "match":
+            order = list(range(len(q["right"])))
+            while len(order) > 1 and order == sorted(order):
+                random.shuffle(order)
+            right_orders[i] = order
     first = mcq_questions[0]
     first_q = first["question"]
+    first_view = question_gen.public_view(first, right_orders.get(0))
 
     _sessions[session_id] = {
         "student_id":    req.student_id,
@@ -323,6 +333,7 @@ async def start_viva(req: StartRequest):
         "upload_row":    upload_row,
         # MCQ viva state
         "mcq_questions":        mcq_questions,
+        "right_orders":         right_orders,
         "total_questions":      total_q,
         "marks_per_question":   marks_per_question,
         "total_marks":          total_marks,
@@ -344,7 +355,8 @@ async def start_viva(req: StartRequest):
         "session_id":          session_id,
         "greeting_text":       opening_line,
         "first_question_text": first_q,
-        "options":             first["options"],
+        "options":             first_view.get("options", []),   # MCQ only (older clients)
+        "question":            first_view,                       # typed view, no answer
         "question_number":     1,
         "total_questions":     total_q,
         "marks_per_question":  marks_per_question,
@@ -357,7 +369,8 @@ async def start_viva(req: StartRequest):
 # ──────────────────────────────────────────────────────────────
 
 class AnswerRequest(BaseModel):
-    answer_text: str
+    answer_text: Optional[str] = None      # MCQ letter, or the fill-in-the-blank text
+    match: Optional[list] = None           # match: right-column index chosen for each left item
 
 @router.post("/answer/{session_id}")
 async def submit_answer(session_id: str, req: AnswerRequest):
@@ -373,84 +386,46 @@ async def submit_answer(session_id: str, req: AnswerRequest):
 
     current_q = state["question_number"]           # 1-based
     current   = mcq[current_q - 1]
-    options   = current["options"]
-    correct_index = current["correct_index"]
-
     mpq = state.get("marks_per_question", 1)
+    order = state.get("right_orders", {}).get(current_q - 1)
 
-    # Parse the student's selected option (index/letter). Empty/invalid = no answer = wrong.
-    selected = _parse_selection(req.answer_text, num_options=len(options))
-    is_correct = (selected is not None and selected == correct_index)
-    marks = mpq if is_correct else 0
-
+    # Mark silently: correctness is not revealed until the whole test is submitted
+    entry = question_gen.mark(current, text=req.answer_text, match=req.match, right_order=order,
+                              mpq=mpq, letters=_LETTERS, parse_selection=_parse_selection)
     state["exchange_count"] += 1
-    if is_correct:
+    if entry["is_correct"]:
         state["correct_count"] += 1
-
+    marks = entry["marks_awarded"]
     score_entry = {"knowledge": marks, "understanding": marks, "application": marks}
     state["exchange_scores"].append(score_entry)
-
-    explanation = current.get("explanation", "")
     state["question_log"].append({
         "question_number": current_q,
         "node":            f"Question {current_q}",
-        "question":        current["question"],
-        "options":         options,
-        "answer":          req.answer_text.strip(),
-        "selected_index":  selected,
-        "correct_index":   correct_index,
-        "correct_option":  options[correct_index],
-        "is_correct":      is_correct,
-        "explanation":     explanation,
-        "feedback":        "Correct." if is_correct else f"Correct answer: {_LETTERS[correct_index]}. {options[correct_index]}",
-        "marks_awarded":   marks,
         "level":           "medium",
         "is_followup":     False,
+        **entry,
         **score_entry,
     })
-
-    state["score_so_far"] = state["correct_count"] * mpq
+    state["score_so_far"] = round(sum(q["marks_awarded"] for q in state["question_log"]), 2)
     orch.update_progress(session_id, current_q, state["score_so_far"])
 
-    # Flashcard shown after every answer (correct option + explanation).
-    flashcard = {
-        "question":       current["question"],
-        "correct_letter": _LETTERS[correct_index],
-        "correct_option": options[correct_index],
-        "explanation":    explanation,
-        "was_correct":    is_correct,
-    }
-
-    # Last question? Finalise with deterministic marks.
     if current_q >= state["total_questions"]:
-        final = await _finalise_mcq(session_id, state)
-        final["flashcard"] = flashcard
-        final["was_correct"] = is_correct
-        final["correct_index"] = correct_index
-        final["correct_option"] = options[correct_index]
-        final["marks_this_question"] = marks
-        return final
+        return await _finalise_mcq(session_id, state)
 
     next_q_num = current_q + 1
     state["question_number"] = next_q_num
     nxt = mcq[next_q_num - 1]
     state["last_question"] = nxt["question"]
-
+    view = question_gen.public_view(nxt, state.get("right_orders", {}).get(next_q_num - 1))
     return {
-        "was_correct":         is_correct,
-        "selected_index":      selected,
-        "correct_index":       correct_index,
-        "correct_option":      options[correct_index],
-        "flashcard":           flashcard,
+        "accepted":            True,
+        "viva_complete":       False,
+        "question":            view,
         "next_question_text":  nxt["question"],
-        "options":             nxt["options"],
+        "options":             view.get("options", []),
         "question_number":     next_q_num,
         "total_questions":     state["total_questions"],
-        "score_so_far":        state["score_so_far"],
-        "correct_count":       state["correct_count"],
-        "marks_this_question": marks,
-        "is_followup":         False,
-        "viva_complete":       False,
+        "answered":            current_q,
         "current_node":        f"Question {next_q_num} of {state['total_questions']}",
     }
 
@@ -467,7 +442,9 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
     total_q  = state["total_questions"]
     correct  = state["correct_count"]
     mpq      = state.get("marks_per_question", 1)
-    obtained = correct * mpq
+    obtained = round(sum(q.get("marks_awarded", 0) for q in state["question_log"]), 2)
+    if obtained == int(obtained):
+        obtained = int(obtained)           # 7.0 → 7; partial match marks keep decimals
     max_marks = total_q * mpq
     pct      = (obtained / max_marks) if max_marks else 0.0
     grade    = _grade_pct(pct)
@@ -476,7 +453,7 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
     strong_areas     = [] if wrong else ["Consistent accuracy across all questions"]
     areas_to_improve = [q["question"][:80] for q in wrong[:3]]
     comment = (f"Scored {obtained}/{max_marks} marks — "
-               f"{correct} of {total_q} correct ({round(pct * 100)}%).")
+               f"{correct} of {total_q} fully correct ({round(pct * 100)}%).")
 
     elapsed_seconds = _time.time() - state.get("session_start_epoch", _time.time())
     session_minutes = max(1, int(elapsed_seconds / 60))
@@ -526,7 +503,7 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
     orch.complete_session(session_id)
 
     closing = (
-        f"Test complete, {name}. You answered {correct} of {total_q} correctly and "
+        f"Test complete, {name}. You got {correct} of {total_q} fully right and "
         f"scored {obtained} out of {max_marks} marks — grade {grade}."
     )
 

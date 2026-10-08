@@ -64,7 +64,7 @@ export default function ProfessorLayout() {
             </DropdownMenu>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 lg:px-6" aria-label="Dashboard sections">
+        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 lg:px-6" aria-label="Dashboard sections" data-tour="prof-nav">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to}
               className={({ isActive }) => cn(

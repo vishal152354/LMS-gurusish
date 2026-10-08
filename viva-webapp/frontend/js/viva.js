@@ -295,26 +295,34 @@ async function chooseOption(idx, group) {
       return;
     }
 
-    // Reveal correctness on the just-answered question
-    if (dnd) dnd.reveal(data.correct_index, idx);
     setStatus('listening');
 
-    // Flashcard pops up after every answer; advancing is gated on "Next".
-    showFlashcard(data.flashcard, data.was_correct, () => {
+    // Answers are revealed only after the whole test is submitted, so there is
+    // no per-question feedback: move straight on (or finish).
+    const advance = () => {
       if (data.viva_complete) {
         updateProgress(totalQuestions, data.final_marks || 0);
         handleCompletion(data);
         return;
       }
       questionNumber = data.question_number;
-      scoreTotal     = data.score_so_far || 0;
-      updateProgress(questionNumber, scoreTotal);
+      updateProgress(questionNumber, 0);
       if (data.current_node) updateTopic(data.current_node);
 
       appendQuestion(questionNumber, data.next_question_text);
+      if (data.question && data.question.type && data.question.type !== 'mcq') {
+        appendMessage('agent', 'This test includes fill-in-the-blank and match questions, which only the new Pariksha app can show. Please open the test there.');
+        return;
+      }
       renderOptions(data.options);
       waitingForReply = false;
-    });
+    };
+    if (data.flashcard) {
+      if (dnd) dnd.reveal(data.correct_index, idx);
+      showFlashcard(data.flashcard, data.was_correct, advance);
+    } else {
+      advance();
+    }
 
   } catch (e) {
     appendMessage('agent', 'Network error. Please check your connection.');

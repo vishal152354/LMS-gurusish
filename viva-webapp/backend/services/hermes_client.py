@@ -19,6 +19,9 @@ HERMES_API_KEY = os.getenv("HERMES_API_KEY",  "")
 HERMES_MODEL   = os.getenv("HERMES_MODEL",    "hermes-agent")
 # Optional minimum request timeout (seconds) — local models can be slow on cold start
 HERMES_API_TIMEOUT = int(os.getenv("HERMES_API_TIMEOUT", "0"))
+# Question generation asks reasoning models to skip their hidden "thinking" — much
+# faster, and the cause of most empty replies. Set HERMES_FAST_REASONING=keep to disable.
+HERMES_FAST_REASONING = os.getenv("HERMES_FAST_REASONING", "off").lower()
 
 # Ollama Cloud (fallback only)
 OLLAMA_BASE  = os.getenv("OLLAMA_BASE_URL",  "https://ollama.com/v1")
@@ -117,7 +120,8 @@ class HermesClient:
                           timeout: int = 60,
                           conversation_history: list | None = None,
                           system: str | None = None,
-                          max_tokens: int = 1200) -> tuple[str, str | None]:
+                          max_tokens: int = 1200,
+                          fast: bool = False) -> tuple[str, str | None]:
         """
         Call the Hermes API server (running at localhost:8642).
         Sends full conversation history as messages array so the model has context.
@@ -139,11 +143,15 @@ class HermesClient:
         # Current user message
         messages.append({"role": "user", "content": message})
 
-        payload = json.dumps({
+        body = {
             "model": HERMES_MODEL,
             "messages": messages,
             "max_tokens": max_tokens,
-        }).encode()
+        }
+        # OpenRouter: ask reasoning models not to think first (ignored by other models)
+        if fast and HERMES_FAST_REASONING != "keep" and "openrouter.ai" in HERMES_API_URL:
+            body["reasoning"] = {"enabled": False}
+        payload = json.dumps(body).encode()
 
         headers = {
             "Content-Type": "application/json",
@@ -167,10 +175,23 @@ class HermesClient:
 
         try:
             result = await loop.run_in_executor(None, _do)
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode("utf-8", "replace")[:300]
+            except Exception:
+                pass
+            raise RuntimeError(f"Hermes API server error: HTTP {e.code} {detail}")
         except Exception as e:
             raise RuntimeError(f"Hermes API server error: {e}")
 
-        content = result["choices"][0]["message"]["content"]
+        # Providers report rate limits and overloads as a JSON error body
+        if not isinstance(result, dict) or not result.get("choices"):
+            err = (result or {}).get("error") if isinstance(result, dict) else None
+            raise RuntimeError(f"Model returned no answer: {str(err or result)[:300]}")
+        content = result["choices"][0]["message"].get("content") or ""
+        if not content.strip():
+            raise RuntimeError("Model returned an empty answer")
         # Extract session_id from response headers if available
         sid = result.get("id") or session_id  # Hermes returns session id in 'id' field
         _log.info("Hermes API response (sid=%s, first 200): %s", sid, content[:200])

@@ -311,12 +311,27 @@ async def get_result(student_id: str, upload_id: str, event_id: str = None):
         "overall_comment":  m.get("overall_comment", ""),
     }
 
-    # attach full question log from evaluation file if present
-    if upload_row and upload_row["okf_bundle_path"]:
+    # This attempt's own answers (saved with its session)
+    conn = get_conn()
+    sess = conn.execute("SELECT question_log, event_id FROM viva_sessions WHERE id=?",
+                        (m.get("session_id"),)).fetchone()
+    ev = conn.execute("SELECT num_questions, marks_per_question FROM viva_events WHERE id=?",
+                      (event_id or (sess["event_id"] if sess else None),)).fetchone()
+    conn.close()
+    if sess and sess["question_log"]:
+        try:
+            result["question_log"] = json.loads(sess["question_log"])
+        except Exception:
+            pass
+    elif not event_id and upload_row and upload_row["okf_bundle_path"]:
+        # legacy attempts: the per-upload evaluation file (last finisher only)
         eval_path = Path(upload_row["okf_bundle_path"]).parent / "evaluation" / "result.json"
         if eval_path.exists():
             with open(eval_path) as f:
                 result["question_log"] = json.load(f).get("question_log", [])
+    if ev and ev["num_questions"]:
+        result["max_marks"] = ev["num_questions"] * (ev["marks_per_question"] or 1)
+        result["total_questions"] = ev["num_questions"]
 
     return result
 

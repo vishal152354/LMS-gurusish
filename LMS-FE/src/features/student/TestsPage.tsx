@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
 import { studentApi } from '@/services/studentApi'
 import { useAppSelector } from '@/store'
@@ -18,6 +19,7 @@ export default function TestsPage() {
   const [tests, setTests] = useState<StudentTest[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<StudentTest | null>(null)
+  useTour('student-tests', tests !== null)
 
   const load = useCallback(async () => {
     setError(null)
@@ -36,7 +38,7 @@ export default function TestsPage() {
           <p className="text-sm text-muted-foreground">Hello, {student.name.split(' ')[0]}</p>
           <h1 className="mt-1 font-display text-3xl font-semibold">My tests</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { setTests(null); load() }}><RefreshCw />Refresh</Button>
+        <Button variant="outline" size="sm" onClick={() => { setTests(null); load() }} data-tour="tests-refresh"><RefreshCw />Refresh</Button>
       </div>
 
       {error && (
@@ -68,8 +70,10 @@ export default function TestsPage() {
         <section className="mt-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">To do</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {pending.map((t) => (
-              <TestCard key={t.event_id} test={t} onStart={() => setConfirm(t)} />
+            {pending.map((t, i) => (
+              <div key={t.event_id} data-tour={i === 0 ? 'test-card' : undefined}>
+                <TestCard test={t} onStart={() => setConfirm(t)} />
+              </div>
             ))}
           </div>
         </section>

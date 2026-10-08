@@ -8,6 +8,7 @@ import { createTransform } from 'redux-persist'
 import auth, { professorLoggedOut } from './authSlice'
 import results from './resultsSlice'
 import notifications from './notificationsSlice'
+import guide from './guideSlice'
 import { http } from '@/services/http'
 
 // Persist auth, saved results and notifications — but not the live socket flag.
@@ -17,11 +18,11 @@ const dropConnected = createTransform(
   { whitelist: ['notifications'] },
 )
 
-const rootReducer = combineReducers({ auth, results, notifications })
+const rootReducer = combineReducers({ auth, results, notifications, guide })
 export type RootState = ReturnType<typeof rootReducer>
 // redux-persist's types predate RTK 2; the persisted reducer has the same state shape
 const persisted = persistReducer(
-  { key: 'pariksha', version: 1, storage, whitelist: ['auth', 'results', 'notifications'], transforms: [dropConnected] },
+  { key: 'pariksha', version: 1, storage, whitelist: ['auth', 'results', 'notifications', 'guide'], transforms: [dropConnected] },
   rootReducer as unknown as Reducer<RootState>,
 ) as unknown as typeof rootReducer
 

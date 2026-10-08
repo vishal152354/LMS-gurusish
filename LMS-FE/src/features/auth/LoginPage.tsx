@@ -12,6 +12,7 @@ import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '@/compone
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
 import { professorApi } from '@/services/professorApi'
 import { studentApi } from '@/services/studentApi'
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const role = params.get('role') === 'professor' ? 'professor' : 'student'
   const { student, professor } = useAppSelector((s) => s.auth)
   const loc = useLocation()
+  useTour('login', !(role === 'student' && student) && !(role === 'professor' && professor))
 
   // Already signed in as the role being shown → go straight in
   if (role === 'student' && student) return <Navigate to="/student" replace />
@@ -77,12 +79,14 @@ export default function LoginPage() {
             <h2 className="font-display text-2xl font-semibold">Sign in</h2>
             <p className="mt-1 text-sm text-muted-foreground">Choose how you’re using Pariksha today.</p>
             <Tabs value={role} onValueChange={(v) => setParams(v === 'professor' ? { role: 'professor' } : {}, { replace: true })} className="mt-6">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-2" data-tour="login-role">
                 <TabsTrigger value="student"><GraduationCap />Student</TabsTrigger>
                 <TabsTrigger value="professor"><UserRound />Professor</TabsTrigger>
               </TabsList>
-              <TabsContent value="student"><StudentForm /></TabsContent>
-              <TabsContent value="professor"><ProfessorForm /></TabsContent>
+              <div data-tour="login-form">
+                <TabsContent value="student"><StudentForm /></TabsContent>
+                <TabsContent value="professor"><ProfessorForm /></TabsContent>
+              </div>
             </Tabs>
           </CardContent>
         </Card>

@@ -233,7 +233,8 @@ def init_db():
     _add_col(conn, "viva_sessions", "missed_at",       "DATETIME")
     _add_col(conn, "event_slots",   "notification_shown", "BOOLEAN DEFAULT FALSE")
     _add_col(conn, "event_slots",   "missed_at",       "DATETIME")
-    _add_col(conn, "viva_sessions", "question_log",    "TEXT")   # per-student MCQ answers (JSON)
+    _add_col(conn, "viva_sessions", "question_log",    "TEXT")   # per-student answers (JSON)
+    _add_col(conn, "viva_events",   "question_types",  "TEXT")   # {"mcq": n, "fill_blank": n, "match": n}
     # ── MCQ test config (professor-chosen, questions pre-generated per event) ──
     _add_col(conn, "viva_events",   "num_questions",      "INTEGER DEFAULT 10")
     _add_col(conn, "viva_events",   "marks_per_question", "INTEGER DEFAULT 1")

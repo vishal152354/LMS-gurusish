@@ -8,6 +8,7 @@ import { router } from '@/routes/router'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FullPageSpinner } from '@/components/FullPageSpinner'
+import { GuideProvider } from '@/features/guide/GuideProvider'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')!).render(
     <Provider store={store}>
       <PersistGate loading={<FullPageSpinner />} persistor={persistor}>
         <TooltipProvider delayDuration={250}>
-          <RouterProvider router={router} />
+          <GuideProvider>
+            <RouterProvider router={router} />
+          </GuideProvider>
           <Toaster />
         </TooltipProvider>
       </PersistGate>

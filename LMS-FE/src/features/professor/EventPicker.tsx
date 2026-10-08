@@ -34,7 +34,7 @@ export function useSelectedEvent() {
 
 export function EventPicker({ events, value, onChange }: { events: EventSummary[] | null; value: string; onChange: (id: string) => void }) {
   return (
-    <div className="flex w-full max-w-sm flex-col gap-2">
+    <div className="flex w-full max-w-sm flex-col gap-2" data-tour="results-event">
       <Label htmlFor="event-picker">Event</Label>
       <Select value={value} onValueChange={onChange} disabled={!events?.length}>
         <SelectTrigger id="event-picker"><SelectValue placeholder={events === null ? 'Loading…' : 'No events yet'} /></SelectTrigger>

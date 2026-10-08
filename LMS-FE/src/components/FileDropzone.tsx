@@ -2,14 +2,15 @@ import { useRef, useState } from 'react'
 import { UploadCloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export function FileDropzone({ accept, hint, disabled, onFile, children }: {
-  accept: string; hint: string; disabled?: boolean; onFile: (f: File) => void; children?: React.ReactNode
+export function FileDropzone({ accept, hint, disabled, onFile, children, tour }: {
+  accept: string; hint: string; disabled?: boolean; onFile: (f: File) => void; children?: React.ReactNode; tour?: string
 }) {
   const [over, setOver] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   return (
     <div
       role="button"
+      data-tour={tour}
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
       onClick={() => !disabled && input.current?.click()}

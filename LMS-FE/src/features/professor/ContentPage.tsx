@@ -14,6 +14,7 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { fromUtc } from '@/lib/utils'
+import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
 import { professorApi } from '@/services/professorApi'
 import { useAppSelector } from '@/store'
@@ -28,6 +29,7 @@ export default function ContentPage() {
   const [uploadPct, setUploadPct] = useState<number | null>(null)
   const [status, setStatus] = useState<Record<string, PipelineStatus>>({})
   const [toDelete, setToDelete] = useState<ContentItem | null>(null)
+  useTour('prof-content', items !== null)
 
   const load = useCallback(async () => {
     try { setItems(await professorApi.listContent()) } catch (e) { toast.error(apiError(e)) }
@@ -78,7 +80,7 @@ export default function ContentPage() {
     <div className="animate-fade-up">
       <PageHeader title="Viva content" description="Upload course material. Pariksha extracts its concepts into a knowledge graph, which tests are generated from." />
 
-      <FileDropzone accept={ACCEPT} hint={`PDF, DOCX, TXT or Markdown · up to ${MAX_MB} MB`} disabled={uploadPct !== null} onFile={upload}>
+      <FileDropzone accept={ACCEPT} hint={`PDF, DOCX, TXT or Markdown · up to ${MAX_MB} MB`} disabled={uploadPct !== null} onFile={upload} tour="content-drop">
         {uploadPct !== null ? (
           <div className="w-full max-w-sm">
             <p className="mb-3 font-semibold">Uploading… {uploadPct}%</p>

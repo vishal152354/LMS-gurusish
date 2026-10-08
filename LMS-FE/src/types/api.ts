@@ -28,17 +28,32 @@ export interface Flashcard {
   was_correct: boolean
 }
 
+export type QuestionType = 'mcq' | 'fill_blank' | 'match'
+
+/** A question as the student sees it during the test — never includes the answer. */
+export type QuestionView =
+  | { type: 'mcq'; question: string; options: string[] }
+  | { type: 'fill_blank'; question: string }
+  | { type: 'match'; question: string; left: string[]; right: string[] }
+
+export interface MatchPair { left: string; chosen: string | null; correct: string; ok: boolean }
+
+/** One answered question, released only once the whole test is submitted. */
 export interface QuestionLogEntry {
   question_number: number
+  type?: QuestionType           // absent on older (MCQ-only) attempts
   question: string
-  options: string[]
-  answer: string
-  selected_index: number | null
-  correct_index: number
+  options?: string[]
+  selected_index?: number | null
+  correct_index?: number
   correct_option: string
+  student_answer?: string | null
+  correct_answer?: string
+  pairs?: MatchPair[]
   is_correct: boolean
   explanation: string
   marks_awarded: number
+  max_marks?: number
 }
 
 export interface StartTestResponse {
@@ -46,6 +61,7 @@ export interface StartTestResponse {
   greeting_text: string
   first_question_text: string
   options: string[]
+  question: QuestionView
   question_number: number
   total_questions: number
   marks_per_question: number
@@ -72,27 +88,19 @@ export interface FinalResult {
   question_log: QuestionLogEntry[]
 }
 
-interface AnswerCommon {
-  was_correct: boolean
-  correct_index: number
-  correct_option: string
-  flashcard: Flashcard
-  marks_this_question: number
-}
-
-export interface AnswerNext extends AnswerCommon {
+/** Before the last question: just the next question — no correctness, no score. */
+export interface AnswerNext {
+  accepted: true
   viva_complete: false
-  next_question_text: string
-  options: string[]
+  question: QuestionView
   question_number: number
   total_questions: number
-  score_so_far: number
-  correct_count: number
-  current_node: string
+  answered: number
 }
 
-export type AnswerResponse = AnswerNext | (AnswerCommon & FinalResult)
+export type AnswerResponse = AnswerNext | FinalResult
 
+export interface AnswerInput { answer_text?: string; match?: (number | null)[] }
 /** GET /student/result/{student_id}/{upload_id} */
 export interface StoredResult {
   student_name: string
@@ -105,6 +113,8 @@ export interface StoredResult {
   areas_to_improve: string[]
   overall_comment: string
   question_log?: QuestionLogEntry[]
+  max_marks?: number
+  total_questions?: number
 }
 
 // ── Professor ──────────────────────────────────────────────
@@ -142,6 +152,7 @@ export interface EventSummary {
   status: string
   max_students: number
   num_questions: number
+  question_types?: Record<QuestionType, number>
   marks_per_question: number
   roster_count: number
   completed: number
@@ -169,7 +180,7 @@ export interface EventDetail {
 export interface CreateEventInput {
   upload_id: string
   title: string
-  num_questions: number
+  question_types: Record<QuestionType, number>
   marks_per_question: number
   event_date?: string
   progress_id?: string
@@ -178,6 +189,8 @@ export interface CreateEventInput {
 export interface CreateEventResponse {
   event_id: string
   num_questions: number
+  question_types: Record<QuestionType, number>
+  requested: Record<QuestionType, number>
   marks_per_question: number
   total_marks: number
 }
@@ -186,6 +199,8 @@ export type GenerationStage = 'pending' | 'reading' | 'generating' | 'checking' 
 export interface GenerationProgress {
   stage: GenerationStage
   attempt: number
+  done?: number      // batches finished
+  total?: number     // batches in this paper
   generated?: number
 }
 
@@ -200,7 +215,10 @@ export interface AnswerBreakdown {
   correct: number
   wrong: number
   unanswered: number
-  questions: { number: number; question: string; chosen: string | null; correct_option: string; is_correct: boolean }[] | null
+  questions: {
+    number: number; type?: QuestionType; question: string; chosen: string | null; correct_option: string
+    is_correct: boolean; marks_awarded?: number; max_marks?: number; pairs?: MatchPair[] | null
+  }[] | null
 }
 
 export type ResultStatus = 'Completed' | 'In Progress' | 'Pending' | 'No Show' | 'Not Booked' | 'Not Attempted'
