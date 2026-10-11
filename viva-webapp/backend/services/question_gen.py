@@ -297,10 +297,21 @@ def _close(a: str, b: str) -> bool:
     return prev[-1] <= 1
 
 
+def q_marks(q: dict, default: float = 1) -> float:
+    """Marks this question is worth (set per type by the teacher; older papers use one value)."""
+    return q.get("marks") or default
+
+
+def paper_total(questions: list, default: float = 1) -> float:
+    total = round(sum(q_marks(q, default) for q in questions), 2)
+    return int(total) if total == int(total) else total
+
+
 def mark(q: dict, *, text: str | None, match: list | None, right_order: list | None,
          mpq: float, letters: list, parse_selection) -> dict:
     """Mark one answer. Returns the question-log fields for it."""
     t = qtype(q)
+    mpq = q_marks(q, mpq)
     base = {"type": t, "question": q["question"], "explanation": q.get("explanation", ""), "max_marks": mpq}
 
     if t == "mcq":

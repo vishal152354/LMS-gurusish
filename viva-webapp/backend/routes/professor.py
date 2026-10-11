@@ -186,7 +186,10 @@ class CreateEventRequest(BaseModel):
     num_questions:      int = 10   # legacy: MCQs only, used when question_types is absent
     # how many of each type, e.g. {"mcq": 5, "fill_blank": 3, "match": 2}
     question_types:     Optional[dict] = None
-    marks_per_question: int = 1    # marks awarded per question (match: shared across its pairs)
+    marks_per_question: int = 1    # legacy: one value for every question
+    # marks per question of each type, e.g. {"mcq": 1, "fill_blank": 2, "match": 4}
+    # (a match question's marks are shared across its pairs)
+    type_marks:         Optional[dict] = None
     event_date:         Optional[str] = None   # legacy (slots) — unused in the roster model
     start_time:         Optional[str] = None
     end_time:           Optional[str] = None
@@ -204,6 +207,8 @@ async def create_event(token: str, req: CreateEventRequest):
     if not 1 <= sum(counts.values()) <= 50:
         raise HTTPException(400, "Choose between 1 and 50 questions in total.")
     marks_per_question = max(1, min(100, req.marks_per_question))
+    type_marks = {t: max(1, min(100, int((req.type_marks or {}).get(t) or marks_per_question)))
+                  for t in question_gen.TYPES}
     pid = req.progress_id
     _set_event_progress(pid, "reading")
 
@@ -252,6 +257,9 @@ async def create_event(token: str, req: CreateEventRequest):
         raise HTTPException(502, "Could not generate questions from this content. Please try again.")
 
     _set_event_progress(pid, "saving")
+    for q in questions:
+        q["marks"] = type_marks[question_gen.qtype(q)]
+    total_marks = question_gen.paper_total(questions)
     made = {t: sum(1 for q in questions if question_gen.qtype(q) == t) for t in question_gen.TYPES}
     event_id     = str(uuid.uuid4())
     now          = datetime.utcnow().isoformat()
@@ -260,11 +268,12 @@ async def create_event(token: str, req: CreateEventRequest):
     conn.execute(
         """INSERT INTO viva_events
            (id,professor_id,upload_id,title,event_date,start_time,end_time,status,max_students,
-            num_questions,marks_per_question,questions_json,question_types,created_at)
-           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?)""",
+            num_questions,marks_per_question,questions_json,question_types,type_marks,total_marks,created_at)
+           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,?,?)""",
         (event_id, prof["id"], req.upload_id, req.title,
          req.event_date or now[:10], req.start_time or "", req.end_time or "", max_students,
-         len(questions), marks_per_question, json.dumps(questions), json.dumps(made), now),
+         len(questions), marks_per_question, json.dumps(questions), json.dumps(made),
+         json.dumps(type_marks), total_marks, now),
     )
     conn.commit()
     conn.close()
@@ -275,8 +284,30 @@ async def create_event(token: str, req: CreateEventRequest):
         "question_types":     made,
         "requested":          counts,
         "marks_per_question": marks_per_question,
-        "total_marks":        len(questions) * marks_per_question,
+        "type_marks":         type_marks,
+        "total_marks":        total_marks,
     }
+
+
+def _event_marks(e) -> tuple[dict, float]:
+    """(marks per question of each type, paper total) — older events use one value for all."""
+    keys = e.keys()
+    mpq = (e["marks_per_question"] if "marks_per_question" in keys and e["marks_per_question"] else 1)
+    tm = None
+    try:
+        if "type_marks" in keys and e["type_marks"]:
+            tm = json.loads(e["type_marks"])
+    except Exception:
+        tm = None
+    tm = tm or {t: mpq for t in question_gen.TYPES}
+    if "total_marks" in keys and e["total_marks"] is not None:
+        total = e["total_marks"]
+    else:
+        n = e["num_questions"] if "num_questions" in keys and e["num_questions"] else 10
+        total = n * mpq
+    if total == int(total):
+        total = int(total)
+    return tm, total
 
 
 def _types_of(e) -> dict:
@@ -321,6 +352,8 @@ async def list_events(token: str):
             "num_questions":      e["num_questions"] if "num_questions" in e.keys() and e["num_questions"] else 10,
             "question_types":     _types_of(e),
             "marks_per_question": e["marks_per_question"] if "marks_per_question" in e.keys() and e["marks_per_question"] else 1,
+            "type_marks":   _event_marks(e)[0],
+            "total_marks":  _event_marks(e)[1],
             "roster_count": roster_count,
             "completed":    done,
             "created_at":   e["created_at"],
@@ -378,6 +411,12 @@ async def delete_event(event_id: str, token: str):
     if not event:
         conn.close()
         raise HTTPException(404, "Event not found")
+    # The test's attempts go with it (marks, integrity log, sessions), as the UI warns
+    sessions = "SELECT id FROM viva_sessions WHERE event_id=?"
+    conn.execute(f"DELETE FROM marks         WHERE session_id IN ({sessions})", (event_id,))
+    conn.execute(f"DELETE FROM integrity_log WHERE session_id IN ({sessions})", (event_id,))
+    conn.execute("DELETE FROM viva_sessions  WHERE event_id=?", (event_id,))
+    conn.execute("DELETE FROM queue          WHERE event_id=?", (event_id,))
     conn.execute("DELETE FROM event_slots    WHERE event_id=?", (event_id,))
     conn.execute("DELETE FROM event_students WHERE event_id=?", (event_id,))
     conn.execute("DELETE FROM viva_events    WHERE id=?",       (event_id,))
@@ -618,7 +657,7 @@ async def get_event_results(event_id: str, token: str):
         _ekeys = event.keys()
         _nq   = (event["num_questions"] if "num_questions" in _ekeys and event["num_questions"] else 10)
         _mpq  = (event["marks_per_question"] if "marks_per_question" in _ekeys and event["marks_per_question"] else 1)
-        max_marks = _nq * _mpq
+        max_marks = _event_marks(event)[1]
 
         # Answer breakdown for the per-student chart
         breakdown = None
@@ -848,7 +887,7 @@ async def export_marks(event_id: str, token: str):
 
         headers = ["Roll Number", "Name", "Topic", "Slot Date", "Slot Time",
                    "Status", "Knowledge (0-10)", "Understanding (0-10)", "Application (0-10)",
-                   "Total (0-30)", "Grade", "Remarks"]
+                   f"Marks (out of {_event_marks(event)[1]})", "Grade", "Remarks"]
         hdr_fill = PatternFill("solid", fgColor="2563EB")
         for ci, h in enumerate(headers, 1):
             cell        = ws.cell(row=2, column=ci, value=h)

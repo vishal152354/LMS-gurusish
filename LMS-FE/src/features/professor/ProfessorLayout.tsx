@@ -12,7 +12,7 @@ import { useNotificationSocket } from '@/hooks/useNotificationSocket'
 import { cn, initials } from '@/lib/utils'
 import { professorApi } from '@/services/professorApi'
 import { useAppDispatch, useAppSelector } from '@/store'
-import { professorAvatarSet, professorLoggedOut } from '@/store/authSlice'
+import { professorAvatarSet, professorLoggedIn, professorLoggedOut } from '@/store/authSlice'
 
 // The cropper is only needed when changing the photo
 const AvatarCropDialog = lazy(() => import('@/components/AvatarCropDialog').then((m) => ({ default: m.AvatarCropDialog })))
@@ -32,17 +32,23 @@ export default function ProfessorLayout() {
   const [photoOpen, setPhotoOpen] = useState(false)
   useNotificationSocket({ role: 'professor', id: professor.id })
 
-  // Validate a persisted token once; the 401 interceptor signs out if it expired
-  useEffect(() => { professorApi.me().catch(() => {}) }, [])
+  // Validate a persisted token once (the 401 interceptor signs out if it expired)
+  // and pick up a renamed display name
+  useEffect(() => {
+    professorApi.me()
+      .then((m) => { if (m.display_name !== professor.displayName) dispatch(professorLoggedIn({ ...professor, displayName: m.display_name })) })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const logout = () => { dispatch(professorLoggedOut()); navigate('/?role=professor') }
+  const logout = () => { dispatch(professorLoggedOut()); navigate('/?role=teacher') }
   const idle = useIdleLogout(true, logout)
 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 brand-bar shadow-[0_6px_20px_rgb(90_79_192/0.25)]">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 lg:px-6">
-          <Brand subtitle="Professor dashboard" />
+          <Brand subtitle="Teacher dashboard" />
           <div className="flex items-center gap-1.5">
             <NotificationBell />
             <DropdownMenu>

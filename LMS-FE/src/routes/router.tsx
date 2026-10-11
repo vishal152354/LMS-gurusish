@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
-import { RequireProfessor, RequireStudent } from './guards'
+import { LegacyTeacherRedirect, RequireAdmin, RequireProfessor, RequireStudent } from './guards'
 import { FullPageSpinner } from '@/components/FullPageSpinner'
 import { RouteError } from '@/components/RouteError'
 import LoginPage from '@/features/auth/LoginPage'
@@ -16,6 +16,9 @@ const EventsPage = lazy(() => import('@/features/professor/EventsPage'))
 const RosterPage = lazy(() => import('@/features/professor/RosterPage'))
 const ResultsPage = lazy(() => import('@/features/professor/ResultsPage'))
 const LivePage = lazy(() => import('@/features/professor/LivePage'))
+const AdminLayout = lazy(() => import('@/features/admin/AdminLayout'))
+const TeachersPage = lazy(() => import('@/features/admin/TeachersPage'))
+const StudentsPage = lazy(() => import('@/features/admin/StudentsPage'))
 
 const s = (el: ReactNode) => <Suspense fallback={<FullPageSpinner />}>{el}</Suspense>
 
@@ -41,7 +44,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteError />,
     children: [
       {
-        path: '/professor',
+        path: '/teacher',
         element: <ProfessorLayout />,
         children: [
           { index: true, element: <Navigate to="content" replace /> },
@@ -54,5 +57,22 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  {
+    element: <RequireAdmin />,
+    errorElement: <RouteError />,
+    children: [
+      {
+        path: '/admin',
+        element: s(<AdminLayout />),
+        children: [
+          { index: true, element: <Navigate to="teachers" replace /> },
+          { path: 'teachers', element: s(<TeachersPage />) },
+          { path: 'students', element: s(<StudentsPage />) },
+        ],
+      },
+    ],
+  },
+  // old links from before the rename
+  { path: '/professor/*', element: <LegacyTeacherRedirect /> },
   { path: '*', element: <RouteError notFound /> },
 ])

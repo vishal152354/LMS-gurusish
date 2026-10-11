@@ -15,6 +15,7 @@ from .routes.transcribe   import router as transcribe_router
 from .routes.professor    import router as professor_router
 from .routes.orchestrator import router as orchestrator_router
 from .routes.prep         import router as prep_router
+from .routes.admin        import router as admin_router
 
 app = FastAPI(title="Pariksha", version="1.0.0")
 
@@ -77,6 +78,7 @@ app.include_router(viva_router)
 app.include_router(audio_router)
 app.include_router(transcribe_router)
 app.include_router(professor_router)
+app.include_router(admin_router)
 app.include_router(orchestrator_router)
 app.include_router(prep_router)
 

@@ -24,7 +24,7 @@ async def spawn_session(req: SpawnRequest):
     ).fetchone()
     conn.close()
     if not student:
-        raise HTTPException(404, "Roll number not found. Please contact your professor.")
+        raise HTTPException(404, "Roll number not found. Please contact your teacher.")
 
     student_id = student["id"]
 
@@ -44,7 +44,7 @@ async def spawn_session(req: SpawnRequest):
         raise HTTPException(
             404,
             "No active viva event found for your roll number. "
-            "Please ask your professor to check the event roster.",
+            "Please ask your teacher to check the test roster.",
         )
 
     event_id  = event_info["event_id"]

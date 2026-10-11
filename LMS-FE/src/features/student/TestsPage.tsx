@@ -60,7 +60,7 @@ export default function TestsPage() {
             <FileText className="size-8 text-subtle-foreground" />
             <h2 className="text-lg font-semibold">No tests assigned yet</h2>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Tests appear here once your professor adds roll number <span className="font-semibold text-foreground tabular">{student.roll}</span> to an event roster.
+              Tests appear here once your teacher adds roll number <span className="font-semibold text-foreground tabular">{student.roll}</span> to an event roster.
             </p>
           </CardContent>
         </Card>

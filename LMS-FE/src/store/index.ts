@@ -5,7 +5,7 @@ import {
 } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 import { createTransform } from 'redux-persist'
-import auth, { professorLoggedOut } from './authSlice'
+import auth, { adminLoggedOut, professorLoggedOut } from './authSlice'
 import results from './resultsSlice'
 import notifications from './notificationsSlice'
 import guide from './guideSlice'
@@ -37,21 +37,25 @@ export type AppDispatch = typeof store.dispatch
 export const useAppDispatch = useDispatch.withTypes<AppDispatch>()
 export const useAppSelector = useSelector.withTypes<RootState>()
 
-// Professor endpoints authenticate with ?token=… — attach it centrally.
+// Teacher (/professor) and admin endpoints authenticate with ?token=… — attach it centrally.
+const tokenFor = (url: string) => {
+  const { professor, admin } = store.getState().auth
+  if (url.startsWith('/professor') && !url.startsWith('/professor/login')) return professor?.token
+  if (url.startsWith('/admin') && !url.startsWith('/admin/login')) return admin?.token
+  return undefined
+}
 http.interceptors.request.use((config) => {
-  const token = store.getState().auth.professor?.token
-  const url = config.url ?? ''
-  if (token && (url.startsWith('/professor') && !url.startsWith('/professor/login'))) {
-    config.params = { ...(config.params ?? {}), token }
-  }
+  const token = tokenFor(config.url ?? '')
+  if (token) config.params = { ...(config.params ?? {}), token }
   return config
 })
 
-// An expired professor token logs the professor out everywhere.
+// An expired token signs that teacher or admin out everywhere.
 http.interceptors.response.use(undefined, (error) => {
   const url: string = error?.config?.url ?? ''
-  if (error?.response?.status === 401 && url.startsWith('/professor') && !url.startsWith('/professor/login')) {
-    store.dispatch(professorLoggedOut())
+  if (error?.response?.status === 401) {
+    if (url.startsWith('/professor') && !url.startsWith('/professor/login')) store.dispatch(professorLoggedOut())
+    if (url.startsWith('/admin') && !url.startsWith('/admin/login')) store.dispatch(adminLoggedOut())
   }
   return Promise.reject(error)
 })

@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // The FastAPI backend serves the API on :7860. In development every API path is
 // proxied there, so the app can use relative URLs and avoid CORS entirely.
 // In staging/production the API lives on its own origin (VITE_API_BASE_URL).
-const API_PREFIXES = ['/student', '/professor', '/orchestrator', '/audio', '/health']
+const API_PREFIXES = ['/student', '/professor', '/admin', '/orchestrator', '/audio', '/health']
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')

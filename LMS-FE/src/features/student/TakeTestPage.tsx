@@ -243,7 +243,7 @@ export default function TakeTestPage() {
             <DialogTitle className="flex items-center gap-2"><ShieldAlert className="size-5 text-warning" />Stay on the test</DialogTitle>
             <DialogDescription>
               Leaving the test window was recorded — warning <strong className="text-foreground tabular">{Math.min(integrity.warnings, 3)} of 3</strong>.
-              {integrity.flagged ? ' This attempt is now flagged for your professor to review.' : ' After three, the attempt is flagged for review.'}
+              {integrity.flagged ? ' This attempt is now flagged for your teacher to review.' : ' After three, the attempt is flagged for review.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

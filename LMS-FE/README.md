@@ -15,11 +15,13 @@ The Pariksha AI viva & assessment portal rebuilt as a React single-page app. It 
 
 ## Features
 
-**Students** — sign in with roll number + name · *My tests* (to do / completed) · full-screen test with tab-switch monitoring · three question types: **multiple choice** (drag the right option into the answer box, tap it, or press A–D), **fill in the blank** (type into the gap; small spelling slips are accepted) and **match the following** (drag or tap cards onto their items; partial marks per correct pair) · **answers and the score are revealed only after the last question** — the backend sends no correctness until then · results with an answer donut and a question-by-question review.
+**Students** — sign in with roll number + name · *My tests* (to do / completed) · full-screen test with tab-switch monitoring · three question types: multiple choice (drag the option into the answer box, tap it, or press A–D), fill in the blank, and match the following (join each pair with a coloured line — tap one side then the other, or drag between the dots) · score and answers shown only after the last question · results with an answer donut and a question-by-question review · Ellie, the elephant guide.
 
-**Professors** — content upload with live processing progress, rename, delete · create tests by choosing **how many of each question type** (MCQ, fill in the blanks, match the following); the paper is generated from the knowledge graph in parallel batches, usually in under 30 seconds, with a live batch-by-batch progress bar · roster CSV upload · results with status filters, per-student answer charts (match pairs shown pair by pair) and Excel export · live monitor · notification bell · profile photo with cropping · automatic sign-out after inactivity.
+**Teachers** — content upload with live processing progress · create tests choosing how many of each question type **and the marks for each type** (live total) · roster CSV upload · results with a **class performance chart** (every student's score against the class average), status filters, per-student answer charts and Excel export · live monitor · profile photo · automatic sign-out after inactivity.
 
-**Ellie, the guide** — an animated elephant who walks users through every page with a spotlight tour the first time they visit (sign-in, tests, each question type, results, and every professor step). She cheers students on between questions without ever hinting at answers. The elephant button (bottom right) replays a page's tour, replays all tours, or turns Ellie off. Tours skip anything not on screen, support the keyboard (← → Esc) and respect reduced-motion settings.
+**Admins** — separate sign-in (Admin tab) · create teachers, reset their passwords, remove unused accounts · add students one by one or import a class-list CSV, search, remove students with no attempts. The first admin account comes from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `viva-webapp/.env` (see `.env.example`).
+
+> Teacher pages live under `/teacher`; old `/professor/...` links redirect. The backend API keeps its `/professor` paths.
 
 ## Getting started
 
@@ -30,7 +32,7 @@ npm install
 npm run dev            # http://localhost:5173
 ```
 
-In development Vite proxies `/student`, `/professor`, `/orchestrator`, `/audio` and `/health` to the backend, so no CORS setup is needed. Browser page loads of `/student/...` and `/professor/...` are served by the React app; only API calls are forwarded.
+In development Vite proxies `/student`, `/professor`, `/admin`, `/orchestrator`, `/audio` and `/health` to the backend, so no CORS setup is needed. Browser page loads of `/student/...`, `/teacher/...` and `/admin/...` are served by the React app; only API calls are forwarded.
 
 Real-time notifications (optional):
 
@@ -70,7 +72,8 @@ src/
   components/         app-level pieces (AnswerDonut, QuestionReview, NotificationBell, AvatarCropDialog, …)
   features/auth/      sign-in
   features/student/   tests list, test-taking (AnswerBoard = drag-and-drop), results
-  features/professor/ content, events, roster, results, live
+  features/professor/ teacher pages: content, events, roster, results (+ class chart), live
+  features/admin/     admin console: teachers, students
   hooks/              notification socket, integrity guard, idle sign-out, generation progress
   services/           Axios instance + typed API clients
   store/              Redux slices (auth, results, notifications) with persistence

@@ -28,13 +28,14 @@ import { professorApi } from '@/services/professorApi'
 import type { ContentItem, EventSummary, QuestionType } from '@/types/api'
 
 const count = z.coerce.number().int().min(0).max(30)
+const mark = z.coerce.number().int('Whole numbers only').min(1, 'At least 1 mark').max(100, 'At most 100 marks')
 const schema = z.object({
   title: z.string().trim().min(3, 'Give the test a title').max(120),
   upload_id: z.string().min(1, 'Choose the content to test on'),
   types: z.object({ mcq: count, fill_blank: count, match: count })
     .refine((t) => t.mcq + t.fill_blank + t.match >= 1, 'Choose at least one question')
     .refine((t) => t.mcq + t.fill_blank + t.match <= 50, 'At most 50 questions in total'),
-  marks_per_question: z.coerce.number().int('Whole numbers only').min(1, 'At least 1').max(100, 'At most 100'),
+  marks: z.object({ mcq: mark, fill_blank: mark, match: mark }),
   event_date: z.date(),
 })
 
@@ -86,11 +87,12 @@ export default function EventsPage() {
                     <div className="min-w-0">
                       <h3 className="truncate text-lg font-semibold">{ev.title}</h3>
                       <p className="truncate text-sm text-muted-foreground">
-                        {ev.num_questions} questions · {ev.num_questions * ev.marks_per_question} marks · {ev.content_name}
+                        {ev.num_questions} questions · {ev.total_marks ?? ev.num_questions * ev.marks_per_question} marks · {ev.content_name}
                       </p>
                       {ev.question_types && (
                         <p className="mt-0.5 text-xs text-subtle-foreground">
-                          {(Object.keys(SHORT) as QuestionType[]).filter((k) => ev.question_types![k]).map((k) => `${ev.question_types![k]} ${SHORT[k]}`).join(' · ')}
+                          {(Object.keys(SHORT) as QuestionType[]).filter((k) => ev.question_types![k])
+                            .map((k) => `${ev.question_types![k]} ${SHORT[k]} × ${ev.type_marks?.[k] ?? ev.marks_per_question}`).join(' · ')}
                         </p>
                       )}
                     </div>
@@ -101,8 +103,8 @@ export default function EventsPage() {
                     <Badge variant={ev.roster_count ? 'accent' : 'warning'}><Users className="size-3" />{ev.roster_count} in roster</Badge>
                     <Badge variant={ev.completed ? 'success' : 'default'}><Check className="size-3" />{ev.completed} completed</Badge>
                     <div className="ml-auto flex gap-1">
-                      <Button asChild size="sm" variant="ghost"><Link to={`/professor/roster?event=${ev.event_id}`}><Users />Roster</Link></Button>
-                      <Button asChild size="sm" variant="ghost"><Link to={`/professor/results?event=${ev.event_id}`}><BarChart3 />Results</Link></Button>
+                      <Button asChild size="sm" variant="ghost"><Link to={`/teacher/roster?event=${ev.event_id}`}><Users />Roster</Link></Button>
+                      <Button asChild size="sm" variant="ghost"><Link to={`/teacher/results?event=${ev.event_id}`}><BarChart3 />Results</Link></Button>
                     </div>
                   </div>
                 </CardContent>
@@ -132,11 +134,15 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
   const progress = useGenerationProgress(progressId)
   const form = useForm<z.input<typeof schema>, unknown, FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', upload_id: '', types: { mcq: 5, fill_blank: 3, match: 2 }, marks_per_question: 1, event_date: new Date() },
+    defaultValues: {
+      title: '', upload_id: '', types: { mcq: 5, fill_blank: 3, match: 2 }, marks: { mcq: 1, fill_blank: 1, match: 4 }, event_date: new Date(),
+    },
   })
   const types = form.watch('types')
-  const n = (Number(types.mcq) || 0) + (Number(types.fill_blank) || 0) + (Number(types.match) || 0)
-  const m = Number(form.watch('marks_per_question')) || 0
+  const marks = form.watch('marks')
+  const keys = Object.keys(SHORT) as QuestionType[]
+  const n = keys.reduce((a, k) => a + (Number(types[k]) || 0), 0)
+  const total = keys.reduce((a, k) => a + (Number(types[k]) || 0) * (Number(marks[k]) || 0), 0)
   const busy = form.formState.isSubmitting
 
   async function onSubmit(v: FormValues) {
@@ -145,7 +151,7 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
     try {
       const r = await professorApi.createEvent({
         upload_id: v.upload_id, title: v.title, question_types: v.types,
-        marks_per_question: v.marks_per_question, event_date: moment(v.event_date).format('YYYY-MM-DD'), progress_id: pid,
+        type_marks: v.marks, marks_per_question: v.marks.mcq, event_date: moment(v.event_date).format('YYYY-MM-DD'), progress_id: pid,
       })
       progress.finish()
       const short = (Object.keys(SHORT) as QuestionType[]).filter((k) => r.requested[k] > r.question_types[k])
@@ -189,38 +195,44 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
             )} />
             <FormField control={form.control} name="types" render={({ field }) => (
               <FormItem data-tour="question-types">
-                <FormLabel>Question types</FormLabel>
+                <FormLabel>Question types and marks</FormLabel>
                 <div className="flex flex-col gap-2">
                   {TYPE_CARDS.map(({ key, label, hint, icon: Icon }) => {
                     const value = Number(field.value[key]) || 0
                     const set = (v: number) => field.onChange({ ...field.value, [key]: Math.max(0, Math.min(30, v)) })
+                    const each = Number(marks[key]) || 0
+                    const setEach = (v: number) =>
+                      form.setValue(`marks.${key}`, Math.max(1, Math.min(100, v)), { shouldValidate: true, shouldDirty: true })
                     return (
-                      <div key={key} className={cn('flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors',
+                      <div key={key} className={cn('rounded-lg border px-3 py-2.5 transition-colors',
                         value ? 'border-accent/50 bg-accent-soft/50' : 'border-border bg-muted')}>
-                        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', value ? 'bg-accent text-accent-foreground' : 'bg-card-strong text-muted-foreground')}>
-                          <Icon className="size-4" />
-                        </span>
-                        <div className="min-w-0 flex-1 leading-tight">
-                          <div className="text-sm font-semibold">{label}</div>
-                          <div className="text-xs text-muted-foreground">{hint}</div>
+                        <div className="flex items-center gap-3">
+                          <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', value ? 'bg-accent text-accent-foreground' : 'bg-card-strong text-muted-foreground')}>
+                            <Icon className="size-4" />
+                          </span>
+                          <div className="min-w-0 flex-1 leading-tight">
+                            <div className="text-sm font-semibold">{label}</div>
+                            <div className="text-xs text-muted-foreground">{hint}</div>
+                          </div>
+                          <Stepper value={value} min={0} max={30} onChange={set} label={`Number of ${label} questions`} />
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button type="button" size="icon" variant="ghost" className="size-8" onClick={() => set(value - 1)} disabled={value === 0} aria-label={`Fewer ${label}`}><Minus /></Button>
-                          <input value={value} inputMode="numeric" aria-label={`Number of ${label} questions`}
-                            onChange={(e) => set(Number(e.target.value.replace(/\D/g, '')) || 0)}
-                            className="w-9 rounded-md border border-input bg-background/40 py-1 text-center text-sm font-semibold tabular outline-none focus:border-accent" />
-                          <Button type="button" size="icon" variant="ghost" className="size-8" onClick={() => set(value + 1)} disabled={value >= 30} aria-label={`More ${label}`}><Plus /></Button>
-                        </div>
+                        {value > 0 && (
+                          <div className="mt-2 flex items-center gap-3 border-t border-accent/20 pt-2" data-tour={key === 'mcq' ? 'type-marks' : undefined}>
+                            <span className="w-9 shrink-0" />
+                            <div className="min-w-0 flex-1 leading-tight">
+                              <div className="text-xs font-semibold">Marks each</div>
+                              <div className="text-[11px] text-muted-foreground tabular">{value * each} marks in total</div>
+                            </div>
+                            <Stepper value={each} min={1} max={100} onChange={setEach} label={`Marks for each ${label} question`} />
+                          </div>
+                        )}
                       </div>
                     )
                   })}
                 </div>
+                <FormDescription>Match questions give part of their marks for each correct pair.</FormDescription>
                 <FormMessage />
               </FormItem>
-            )} />
-            <FormField control={form.control} name="marks_per_question" render={({ field }) => (
-              <FormItem><FormLabel>Marks per question</FormLabel><FormControl><Input type="number" min={1} max={100} inputMode="numeric" {...field} value={field.value as number} /></FormControl>
-                <FormDescription>Match questions give partial marks for each correct pair.</FormDescription><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="event_date" render={({ field }) => (
               <FormItem>
@@ -240,7 +252,7 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
             )} />
             <div className="flex items-center justify-between rounded-md border border-border bg-muted px-3 py-2.5 text-sm">
               <span className="text-muted-foreground">{n} question{n === 1 ? '' : 's'} · total marks</span>
-              <span className="font-semibold tabular">{n * m || '—'}</span>
+              <span className="font-semibold tabular">{total || '—'}</span>
             </div>
 
             {visible && (
@@ -275,5 +287,19 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
         </Form>
       </CardContent>
     </Card>
+  )
+}
+
+function Stepper({ value, min, max, onChange, label }: {
+  value: number; min: number; max: number; onChange: (v: number) => void; label: string
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button type="button" size="icon" variant="ghost" className="size-8" onClick={() => onChange(value - 1)} disabled={value <= min} aria-label={`Decrease ${label}`}><Minus /></Button>
+      <input value={value} inputMode="numeric" aria-label={label}
+        onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, '')) || min)}
+        className="w-10 rounded-md border border-input bg-card py-1 text-center text-sm font-semibold tabular outline-none focus:border-accent" />
+      <Button type="button" size="icon" variant="ghost" className="size-8" onClick={() => onChange(value + 1)} disabled={value >= max} aria-label={`Increase ${label}`}><Plus /></Button>
+    </div>
   )
 }

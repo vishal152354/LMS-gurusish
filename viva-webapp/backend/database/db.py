@@ -97,7 +97,16 @@ def init_db():
         id            TEXT PRIMARY KEY,
         username      TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
-        display_name  TEXT DEFAULT 'Professor',
+        display_name  TEXT DEFAULT 'Teacher',
+        created_at    DATETIME
+    )""")
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS admins (
+        id            TEXT PRIMARY KEY,
+        username      TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        display_name  TEXT DEFAULT 'Administrator',
         created_at    DATETIME
     )""")
 
@@ -239,6 +248,8 @@ def init_db():
     _add_col(conn, "viva_events",   "num_questions",      "INTEGER DEFAULT 10")
     _add_col(conn, "viva_events",   "marks_per_question", "INTEGER DEFAULT 1")
     _add_col(conn, "viva_events",   "questions_json",     "TEXT")
+    _add_col(conn, "viva_events",   "type_marks",         "TEXT")   # {"mcq": 1, "fill_blank": 2, "match": 4}
+    _add_col(conn, "viva_events",   "total_marks",        "REAL")   # sum of every question's marks
 
     conn.commit()
 
@@ -249,9 +260,25 @@ def init_db():
     if not existing:
         conn.execute(
             "INSERT INTO professors (id, username, password_hash, display_name, created_at) VALUES (?,?,?,?,?)",
-            ("prof_default", PROF_USER, _hash(PROF_PASS), "Professor", datetime.utcnow().isoformat())
+            ("prof_default", PROF_USER, _hash(PROF_PASS), "Teacher", datetime.utcnow().isoformat())
         )
         conn.commit()
+    # accounts created before "Professor" was renamed "Teacher"
+    conn.execute("UPDATE professors SET display_name='Teacher' WHERE display_name='Professor'")
+    conn.commit()
+
+    # ── default admin account (creates teachers and students) ──
+    ADMIN_USER = os.getenv("ADMIN_USERNAME", "superadmin")
+    ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin1234")
+    if not conn.execute("SELECT id FROM admins WHERE username=?", (ADMIN_USER,)).fetchone():
+        conn.execute(
+            "INSERT INTO admins (id, username, password_hash, display_name, created_at) VALUES (?,?,?,?,?)",
+            (f"admin_{ADMIN_USER}", ADMIN_USER, _hash(ADMIN_PASS), "Administrator", datetime.utcnow().isoformat())
+        )
+    elif os.getenv("ADMIN_PASSWORD"):
+        # .env is the source of truth for the admin password — changing it there takes effect on restart
+        conn.execute("UPDATE admins SET password_hash=? WHERE username=?", (_hash(ADMIN_PASS), ADMIN_USER))
+    conn.commit()
 
     conn.close()
     print(f"Database initialised at {DB_PATH}")

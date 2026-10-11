@@ -302,13 +302,12 @@ async def start_viva(req: StartRequest):
         conn = get_conn()
         conn.execute("DELETE FROM viva_sessions WHERE id=?", (session_id,))
         conn.commit(); conn.close()
-        raise HTTPException(409, "This viva has no question paper. Ask your professor to recreate the event.")
+        raise HTTPException(409, "This viva has no question paper. Ask your teacher to recreate the test.")
 
     total_q = len(mcq_questions)
-    total_marks = total_q * marks_per_question
+    total_marks = question_gen.paper_total(mcq_questions, marks_per_question)
     opening_line = (
-        f"Test — {total_q} questions, {marks_per_question} "
-        f"mark{'s' if marks_per_question != 1 else ''} each ({total_marks} total). "
+        f"Test — {total_q} questions, {total_marks} marks in total. "
         f"Answers and your score are shown after the last question."
     )
     # Each student sees the match-the-following right column in its own order
@@ -445,7 +444,7 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
     obtained = round(sum(q.get("marks_awarded", 0) for q in state["question_log"]), 2)
     if obtained == int(obtained):
         obtained = int(obtained)           # 7.0 → 7; partial match marks keep decimals
-    max_marks = total_q * mpq
+    max_marks = state.get("total_marks") or total_q * mpq
     pct      = (obtained / max_marks) if max_marks else 0.0
     grade    = _grade_pct(pct)
 
@@ -898,7 +897,7 @@ async def get_event_info(roll_number: str):
         raise HTTPException(
             404,
             "No scheduled viva found for your roll number. "
-            "Please ask your professor to check the event roster.",
+            "Please ask your teacher to check the test roster.",
         )
 
     out = []
@@ -937,7 +936,7 @@ async def join_viva(req: JoinRequest):
     ).fetchone()
     conn.close()
     if not student:
-        raise HTTPException(404, "Roll number not found. Please contact your professor.")
+        raise HTTPException(404, "Roll number not found. Please contact your teacher.")
 
     student_id = student["id"]
 
@@ -971,7 +970,7 @@ async def join_viva(req: JoinRequest):
         raise HTTPException(
             404,
             "No active viva event found for your roll number. "
-            "Please ask your professor to check the event roster.",
+            "Please ask your teacher to check the test roster.",
         )
 
     event_id  = event_info["event_id"]
@@ -1009,5 +1008,5 @@ async def join_viva(req: JoinRequest):
         409,
         f"All {max_students} viva slots are currently occupied ({active_count} active, "
         f"{orch.get_status()['reserved_count']} joining). "
-        "Please wait a few minutes and try again, or contact your professor.",
+        "Please wait a few minutes and try again, or contact your teacher.",
     )

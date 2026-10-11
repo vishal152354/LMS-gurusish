@@ -15,6 +15,7 @@ import { apiError } from '@/services/http'
 import { professorApi } from '@/services/professorApi'
 import { useAppSelector } from '@/store'
 import type { ResultRow, ResultStatus } from '@/types/api'
+import { ClassChart } from './ClassChart'
 import { EventPicker, useSelectedEvent } from './EventPicker'
 
 const STATUS_BADGE: Record<ResultStatus, 'success' | 'accent' | 'warning' | 'destructive' | 'default'> = {
@@ -74,6 +75,8 @@ export default function ResultsPage() {
             <Stat label="Not attempted" value={rows ? (counts['Not Attempted'] ?? 0) + (counts['Not Booked'] ?? 0) : null} />
             <Stat label="Average score" value={rows ? (avgPct === null ? '—' : `${avgPct}%`) : null} />
           </div>
+
+          {rows && <ClassChart rows={rows} />}
 
           <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Filter by status">
             {FILTERS.map((f) => (

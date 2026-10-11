@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { BarChart3, BookOpenCheck, GraduationCap, Hand, ShieldCheck, UserRound } from 'lucide-react'
+import { BarChart3, BookOpenCheck, GraduationCap, Hand, ShieldCheck, UserCog, UserRound } from 'lucide-react'
 import { Brand } from '@/components/Brand'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,10 +14,11 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTour } from '@/features/guide/guideContext'
 import { apiError } from '@/services/http'
+import { adminApi } from '@/services/adminApi'
 import { professorApi } from '@/services/professorApi'
 import { studentApi } from '@/services/studentApi'
 import { useAppDispatch, useAppSelector } from '@/store'
-import { professorLoggedIn, studentLoggedIn } from '@/store/authSlice'
+import { adminLoggedIn, professorLoggedIn, studentLoggedIn } from '@/store/authSlice'
 
 const studentSchema = z.object({
   roll: z.string().trim().min(1, 'Enter your roll number')
@@ -40,14 +41,17 @@ const SLIDES = [
 
 export default function LoginPage() {
   const [params, setParams] = useSearchParams()
-  const role = params.get('role') === 'professor' ? 'professor' : 'student'
-  const { student, professor } = useAppSelector((s) => s.auth)
+  // ?role=professor is the pre-rename link for teachers
+  const param = params.get('role')
+  const role = param === 'teacher' || param === 'professor' ? 'teacher' : param === 'admin' ? 'admin' : 'student'
+  const { student, professor, admin } = useAppSelector((s) => s.auth)
   const loc = useLocation()
-  useTour('login', !(role === 'student' && student) && !(role === 'professor' && professor))
+  useTour('login', !(role === 'student' && student) && !(role === 'teacher' && professor) && !(role === 'admin' && admin))
 
   // Already signed in as the role being shown → go straight in
   if (role === 'student' && student) return <Navigate to="/student" replace />
-  if (role === 'professor' && professor) return <Navigate to={(loc.state as { from?: string })?.from ?? '/professor'} replace />
+  if (role === 'teacher' && professor) return <Navigate to={(loc.state as { from?: string })?.from ?? '/teacher'} replace />
+  if (role === 'admin' && admin) return <Navigate to={(loc.state as { from?: string })?.from ?? '/admin'} replace />
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -83,14 +87,16 @@ export default function LoginPage() {
             <CardContent className="p-6 sm:p-8">
               <h2 className="text-center font-display text-2xl font-bold">Welcome!</h2>
               <p className="mt-1 text-center text-sm text-muted-foreground">Choose how you’re using Pariksha today.</p>
-              <Tabs value={role} onValueChange={(v) => setParams(v === 'professor' ? { role: 'professor' } : {}, { replace: true })} className="mt-6">
-                <TabsList className="grid w-full grid-cols-2" data-tour="login-role">
-                  <TabsTrigger value="student"><GraduationCap />Student</TabsTrigger>
-                  <TabsTrigger value="professor"><UserRound />Professor</TabsTrigger>
+              <Tabs value={role} onValueChange={(v) => setParams(v === 'student' ? {} : { role: v }, { replace: true })} className="mt-6">
+                <TabsList className="grid w-full grid-cols-3" data-tour="login-role">
+                  <TabsTrigger value="student" className="px-2"><GraduationCap />Student</TabsTrigger>
+                  <TabsTrigger value="teacher" className="px-2"><UserRound />Teacher</TabsTrigger>
+                  <TabsTrigger value="admin" className="px-2"><UserCog />Admin</TabsTrigger>
                 </TabsList>
                 <div data-tour="login-form">
                   <TabsContent value="student"><StudentForm /></TabsContent>
-                  <TabsContent value="professor"><ProfessorForm /></TabsContent>
+                  <TabsContent value="teacher"><ProfessorForm /></TabsContent>
+                  <TabsContent value="admin"><AdminForm /></TabsContent>
                 </div>
               </Tabs>
             </CardContent>
@@ -153,7 +159,7 @@ function ProfessorForm() {
     try {
       const res = await professorApi.login(v.username, v.password)
       dispatch(professorLoggedIn({ token: res.token, id: res.professor_id, displayName: res.display_name }))
-      navigate((loc.state as { from?: string })?.from ?? '/professor')
+      navigate((loc.state as { from?: string })?.from ?? '/teacher')
     } catch (e) {
       form.setError('password', { message: apiError(e, 'Invalid username or password') })
     }
@@ -177,6 +183,47 @@ function ProfessorForm() {
           </FormItem>
         )} />
         <Button type="submit" size="lg" className="mt-2" loading={form.formState.isSubmitting}>Sign in</Button>
+      </form>
+    </Form>
+  )
+}
+
+function AdminForm() {
+  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
+  const loc = useLocation()
+  const form = useForm<z.infer<typeof professorSchema>>({ resolver: zodResolver(professorSchema), defaultValues: { username: '', password: '' } })
+
+  useEffect(() => { form.setFocus('username') }, [form])
+
+  async function onSubmit(v: z.infer<typeof professorSchema>) {
+    try {
+      const res = await adminApi.login(v.username, v.password)
+      dispatch(adminLoggedIn({ token: res.token, id: res.admin_id, displayName: res.display_name }))
+      navigate((loc.state as { from?: string })?.from ?? '/admin')
+    } catch (e) {
+      form.setError('password', { message: apiError(e, 'Invalid username or password') })
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+        <FormField control={form.control} name="username" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Admin username</FormLabel>
+            <FormControl><Input autoComplete="username" {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="password" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Password</FormLabel>
+            <FormControl><Input type="password" autoComplete="current-password" {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <Button type="submit" size="lg" className="mt-2" loading={form.formState.isSubmitting}>Sign in as admin</Button>
       </form>
     </Form>
   )

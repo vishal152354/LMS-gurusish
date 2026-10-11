@@ -2,13 +2,15 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 export interface StudentSession { id: string; roll: string; name: string }
 export interface ProfessorSession { token: string; id: string; displayName: string; avatar?: string | null }
+export interface AdminSession { token: string; id: string; displayName: string }
 
 interface AuthState {
   student: StudentSession | null
   professor: ProfessorSession | null
+  admin?: AdminSession | null
 }
 
-const initialState: AuthState = { student: null, professor: null }
+const initialState: AuthState = { student: null, professor: null, admin: null }
 
 const authSlice = createSlice({
   name: 'auth',
@@ -19,8 +21,12 @@ const authSlice = createSlice({
     professorLoggedIn: (s, a: PayloadAction<ProfessorSession>) => { s.professor = { ...a.payload, avatar: s.professor?.avatar ?? null } },
     professorLoggedOut: (s) => { s.professor = null },
     professorAvatarSet: (s, a: PayloadAction<string | null>) => { if (s.professor) s.professor.avatar = a.payload },
+    adminLoggedIn: (s, a: PayloadAction<AdminSession>) => { s.admin = a.payload },
+    adminLoggedOut: (s) => { s.admin = null },
   },
 })
 
-export const { studentLoggedIn, studentLoggedOut, professorLoggedIn, professorLoggedOut, professorAvatarSet } = authSlice.actions
+export const {
+  studentLoggedIn, studentLoggedOut, professorLoggedIn, professorLoggedOut, professorAvatarSet, adminLoggedIn, adminLoggedOut,
+} = authSlice.actions
 export default authSlice.reducer

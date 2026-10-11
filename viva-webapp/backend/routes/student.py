@@ -315,7 +315,7 @@ async def get_result(student_id: str, upload_id: str, event_id: str = None):
     conn = get_conn()
     sess = conn.execute("SELECT question_log, event_id FROM viva_sessions WHERE id=?",
                         (m.get("session_id"),)).fetchone()
-    ev = conn.execute("SELECT num_questions, marks_per_question FROM viva_events WHERE id=?",
+    ev = conn.execute("SELECT num_questions, marks_per_question, total_marks FROM viva_events WHERE id=?",
                       (event_id or (sess["event_id"] if sess else None),)).fetchone()
     conn.close()
     if sess and sess["question_log"]:
@@ -330,10 +330,18 @@ async def get_result(student_id: str, upload_id: str, event_id: str = None):
             with open(eval_path) as f:
                 result["question_log"] = json.load(f).get("question_log", [])
     if ev and ev["num_questions"]:
-        result["max_marks"] = ev["num_questions"] * (ev["marks_per_question"] or 1)
+        result["max_marks"] = _max_marks(ev)
         result["total_questions"] = ev["num_questions"]
 
     return result
+
+def _max_marks(e) -> float:
+    """Paper total: stored at creation (marks can differ per question type), else questions × marks."""
+    if e["total_marks"] is not None:
+        t = e["total_marks"]
+    else:
+        t = (e["num_questions"] or 10) * (e["marks_per_question"] or 1)
+    return int(t) if t == int(t) else t
 
 # ──────────────────────────────────────────────────────────────
 # V3 — ROSTER-MAPPED TESTS (always available, one attempt each)
@@ -350,7 +358,7 @@ async def my_tests(roll_number: str):
     conn = get_conn()
     rows = conn.execute(
         """SELECT e.id AS event_id, e.title, e.upload_id, e.status, e.created_at,
-                  e.num_questions, e.marks_per_question
+                  e.num_questions, e.marks_per_question, e.total_marks
            FROM event_students es
            JOIN viva_events e ON e.id = es.event_id
            WHERE es.roll_number = ?
@@ -372,9 +380,7 @@ async def my_tests(roll_number: str):
                ORDER BY m.created_at DESC LIMIT 1""",
             (roll, e["event_id"]),
         ).fetchone()
-        ekeys = e.keys()
-        n_q  = (e["num_questions"] if "num_questions" in ekeys and e["num_questions"] else 10)
-        m_pq = (e["marks_per_question"] if "marks_per_question" in ekeys and e["marks_per_question"] else 1)
+        n_q  = e["num_questions"] or 10
         tests.append({
             "event_id":      e["event_id"],
             "title":         e["title"] or "Viva Examination",
@@ -382,7 +388,7 @@ async def my_tests(roll_number: str):
             "filename":      (upload["display_name"] or upload["filename"]) if upload else e["upload_id"],
             "ready":         bool(upload["okf_ready"]) if upload else False,
             "num_questions": n_q,
-            "max_marks":     n_q * m_pq,
+            "max_marks":     _max_marks(e),
             "attempted":     mark is not None,
             "score":         mark["total"] if mark else None,
             "grade":         mark["grade"] if mark else None,
