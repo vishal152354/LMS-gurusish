@@ -150,7 +150,7 @@ function Pool({ armed, children }: { armed: boolean; children: React.ReactNode }
   const { setNodeRef, isOver } = useDroppable({ id: 'pool' })
   return (
     <div ref={setNodeRef} aria-label="Cards to place"
-      className={cn('flex min-h-16 flex-wrap gap-2 rounded-xl border border-border bg-white/[0.025] p-3 transition-colors', armed && 'border-dashed', isOver && 'bg-accent-soft/40')}>
+      className={cn('flex min-h-16 flex-wrap gap-2 rounded-xl border border-border bg-card p-3 transition-colors', armed && 'border-dashed', isOver && 'bg-accent-soft/40')}>
       {children}
     </div>
   )

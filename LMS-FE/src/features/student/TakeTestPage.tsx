@@ -175,7 +175,7 @@ export default function TakeTestPage() {
   // ── test in progress ──────────────────────────────────────
   return (
     <div className="min-h-screen pb-24">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 brand-bar shadow-[0_6px_20px_rgb(90_79_192/0.25)]">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-4 px-4">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{test?.title ?? 'Test'}</div>

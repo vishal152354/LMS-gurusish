@@ -177,9 +177,9 @@ function Slot({ chosen, option, active, over, landedKey, state, locked, onClear 
       aria-label="Answer box"
       className={cn(
         'relative flex min-h-16 items-center rounded-lg border-2 border-dashed p-2 transition-all duration-200',
-        'border-border-strong bg-white/[0.025]',
+        'border-border-strong bg-card',
         active && 'border-accent/60',
-        over && 'border-solid border-accent bg-accent-soft shadow-[0_0_0_4px_rgb(125_211_252/0.12)]',
+        over && 'border-solid border-accent bg-accent-soft shadow-[0_0_0_4px_rgb(108_93_211/0.14)]',
         option && !state && 'border-solid border-accent bg-accent-soft/70',
         state === 'correct' && 'border-solid border-success bg-success-soft',
         state === 'wrong' && 'border-solid border-destructive bg-destructive-soft',

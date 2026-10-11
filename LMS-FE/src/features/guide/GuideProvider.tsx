@@ -168,9 +168,9 @@ function TourOverlay({ tour, setTour, onEnd }: {
       {/* dim + spotlight */}
       {rect ? (
         <div className="pointer-events-none fixed rounded-xl ring-2 ring-accent transition-all duration-500 ease-out"
-          style={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2, boxShadow: '0 0 0 9999px rgb(5 6 8 / 0.62)' }} />
+          style={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2, boxShadow: '0 0 0 9999px rgb(43 37 87 / 0.5)' }} />
       ) : (
-        <div className="fixed inset-0 bg-[rgb(5_6_8/0.62)] transition-opacity" />
+        <div className="fixed inset-0 bg-[rgb(43_37_87/0.5)] transition-opacity" />
       )}
       {/* Ellie walks to each step */}
       <div className="fixed transition-[top,left] duration-500 ease-[cubic-bezier(.3,1.25,.5,1)]" style={{ top, left, width: cardW }}>

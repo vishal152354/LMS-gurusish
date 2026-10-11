@@ -50,48 +50,54 @@ export default function LoginPage() {
   if (role === 'professor' && professor) return <Navigate to={(loc.state as { from?: string })?.from ?? '/professor'} replace />
 
   return (
-    <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-10 lg:grid-cols-[1.1fr_1fr] lg:px-8">
-      <section className="hidden lg:block">
-        <Brand subtitle="AI viva & assessment portal" />
-        <h1 className="mt-10 font-display text-5xl font-semibold leading-[1.1]">
-          Assess understanding,<br /><span className="text-accent">not memory.</span>
-        </h1>
-        <Carousel className="mt-12 max-w-md">
-          <CarouselContent>
-            {SLIDES.map(({ icon: Icon, title, body }) => (
-              <CarouselItem key={title}>
-                <div className="pr-6">
-                  <Icon className="size-6 text-accent" aria-hidden="true" />
-                  <h2 className="mt-3 text-lg font-semibold">{title}</h2>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselDots className="mt-6 justify-start" />
-        </Carousel>
-      </section>
+    <div className="flex min-h-screen flex-col">
+      <header className="brand-bar shadow-[0_6px_20px_rgb(90_79_192/0.25)]">
+        <div className="mx-auto flex h-16 max-w-6xl items-center px-4 lg:px-8">
+          <Brand subtitle="AI viva & assessment portal" />
+        </div>
+      </header>
+      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-4 py-10 lg:grid-cols-[1.1fr_1fr] lg:px-8">
+        <section className="hidden lg:block">
+          <p className="text-sm font-bold uppercase tracking-[0.12em] text-accent">Learning, made joyful</p>
+          <h1 className="mt-4 font-display text-5xl font-bold leading-[1.1]">
+            Assess understanding,<br /><span className="text-primary">not memory.</span>
+          </h1>
+          <Carousel className="mt-12 max-w-md">
+            <CarouselContent>
+              {SLIDES.map(({ icon: Icon, title, body }) => (
+                <CarouselItem key={title}>
+                  <div className="pr-6">
+                    <Icon className="size-6 text-accent" aria-hidden="true" />
+                    <h2 className="mt-3 text-lg font-semibold">{title}</h2>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselDots className="mt-6 justify-start" />
+          </Carousel>
+        </section>
 
-      <section className="mx-auto w-full max-w-md animate-fade-up">
-        <Brand className="mb-8 lg:hidden" subtitle="AI viva & assessment portal" />
-        <Card>
-          <CardContent className="p-6 sm:p-8">
-            <h2 className="font-display text-2xl font-semibold">Sign in</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Choose how you’re using Pariksha today.</p>
-            <Tabs value={role} onValueChange={(v) => setParams(v === 'professor' ? { role: 'professor' } : {}, { replace: true })} className="mt-6">
-              <TabsList className="grid w-full grid-cols-2" data-tour="login-role">
-                <TabsTrigger value="student"><GraduationCap />Student</TabsTrigger>
-                <TabsTrigger value="professor"><UserRound />Professor</TabsTrigger>
-              </TabsList>
-              <div data-tour="login-form">
-                <TabsContent value="student"><StudentForm /></TabsContent>
-                <TabsContent value="professor"><ProfessorForm /></TabsContent>
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
-        <p className="mt-6 text-center text-xs text-subtle-foreground">Data stays on your institution’s server.</p>
-      </section>
+        <section className="mx-auto w-full max-w-md animate-fade-up">
+          <Card className="shadow-[0_20px_50px_rgb(108_93_211/0.15)]">
+            <CardContent className="p-6 sm:p-8">
+              <h2 className="text-center font-display text-2xl font-bold">Welcome!</h2>
+              <p className="mt-1 text-center text-sm text-muted-foreground">Choose how you’re using Pariksha today.</p>
+              <Tabs value={role} onValueChange={(v) => setParams(v === 'professor' ? { role: 'professor' } : {}, { replace: true })} className="mt-6">
+                <TabsList className="grid w-full grid-cols-2" data-tour="login-role">
+                  <TabsTrigger value="student"><GraduationCap />Student</TabsTrigger>
+                  <TabsTrigger value="professor"><UserRound />Professor</TabsTrigger>
+                </TabsList>
+                <div data-tour="login-form">
+                  <TabsContent value="student"><StudentForm /></TabsContent>
+                  <TabsContent value="professor"><ProfessorForm /></TabsContent>
+                </div>
+              </Tabs>
+            </CardContent>
+          </Card>
+          <p className="mt-6 text-center text-xs text-subtle-foreground">Data stays on your institution’s server.</p>
+        </section>
+      </div>
     </div>
   )
 }

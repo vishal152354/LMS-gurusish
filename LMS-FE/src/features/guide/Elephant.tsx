@@ -10,7 +10,7 @@ export function Elephant({ mood = 'idle', size = 96, className }: { mood?: Mood;
       {/* sparkle stars (only visible when cheering) */}
       <g className="ellie-stars">
         <path d="M100 18l2.4 5 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4-3.9-3.8 5.4-.8z" fill="#FCD34D" />
-        <path d="M14 26l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#7DD3FC" />
+        <path d="M14 26l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#6C5DD3" />
         <circle cx="108" cy="46" r="2.4" fill="#F9A8D4" />
       </g>
       <g className="ellie-body">
@@ -49,8 +49,8 @@ export function Elephant({ mood = 'idle', size = 96, className }: { mood?: Mood;
         <g className="ellie-cap">
           <path d="M30 32l20-9 20 9-20 9z" fill="#1E293B" />
           <path d="M38 36v6c0 2 5.5 4 12 4s12-2 12-4v-6l-12 5z" fill="#334155" />
-          <path d="M66 34v9" stroke="#7DD3FC" strokeWidth="1.6" />
-          <circle cx="66" cy="44" r="2.2" fill="#7DD3FC" />
+          <path d="M66 34v9" stroke="#6C5DD3" strokeWidth="1.6" />
+          <circle cx="66" cy="44" r="2.2" fill="#6C5DD3" />
         </g>
       </g>
     </svg>

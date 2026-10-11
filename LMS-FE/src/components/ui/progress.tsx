@@ -6,7 +6,7 @@ export function Progress({ className, value = 0, indicatorClassName, shimmer, ..
   return (
     <ProgressPrimitive.Root className={cn('relative h-2 w-full overflow-hidden rounded-full bg-muted', className)} value={value} {...props}>
       <ProgressPrimitive.Indicator
-        className={cn('relative h-full overflow-hidden rounded-full bg-gradient-to-r from-sky-400 to-accent transition-[width] duration-300 ease-out', indicatorClassName)}
+        className={cn('relative h-full overflow-hidden rounded-full bg-gradient-to-r from-primary to-accent transition-[width] duration-300 ease-out', indicatorClassName)}
         style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }}
       >
         {shimmer && <span className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/35 to-transparent" />}

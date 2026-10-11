@@ -21,7 +21,7 @@ export function FillBlankBoard({ question, locked, submitting, onSubmit }: {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border-2 border-dashed border-border-strong bg-white/[0.025] p-5 text-lg leading-[2.6] sm:text-xl" data-tour="answer-area">
+      <div className="rounded-xl border-2 border-dashed border-border-strong bg-card p-5 text-lg leading-[2.6] sm:text-xl" data-tour="answer-area">
         <span>{before}</span>
         <input
           ref={input}

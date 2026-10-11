@@ -123,7 +123,7 @@ export default function ResultsPage() {
                           </TableCell>
                         </TableRow>
                         {isOpen && r.breakdown && (
-                          <TableRow className="bg-white/[0.015] hover:bg-white/[0.015]">
+                          <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <TableCell colSpan={5} className="p-0">
                               <div className="grid gap-6 p-6 animate-fade-up md:grid-cols-[minmax(240px,320px)_1fr]">
                                 <AnswerDonut correct={r.breakdown.correct} wrong={r.breakdown.wrong} unanswered={r.breakdown.unanswered}

@@ -19,7 +19,7 @@ export default function StudentLayout() {
   return (
     <div className="min-h-screen">
       {!inTest && (
-        <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 brand-bar shadow-[0_6px_20px_rgb(90_79_192/0.25)]">
           <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4">
             <Link to="/student" aria-label="My tests"><Brand /></Link>
             <div className="flex items-center gap-2">

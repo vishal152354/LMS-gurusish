@@ -3,7 +3,7 @@ import { Toaster as Sonner, type ToasterProps } from 'sonner'
 export function Toaster(props: ToasterProps) {
   return (
     <Sonner
-      theme="dark"
+      theme="light"
       position="top-right"
       offset={{ top: 76, right: 16 }}
       mobileOffset={{ top: 72 }}

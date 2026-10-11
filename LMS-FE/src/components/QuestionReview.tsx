@@ -26,9 +26,9 @@ export function QuestionReview({ items, className }: { items: ReviewItem[]; clas
     <ol className={cn('flex flex-col gap-2', className)}>
       {items.map((q) => {
         const partial = q.type === 'match' && !q.is_correct && (q.marks ?? 0) > 0
-        const tone = q.is_correct ? ANSWER_COLORS.correct : partial ? '#fbbf24' : ANSWER_COLORS.wrong
+        const tone = q.is_correct ? ANSWER_COLORS.correct : partial ? '#d97706' : ANSWER_COLORS.wrong
         return (
-          <li key={q.number} className="flex gap-3 rounded-lg border border-white/5 bg-white/[0.03] p-3.5">
+          <li key={q.number} className="flex gap-3 rounded-lg border border-border bg-card p-3.5">
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full"
               style={{ background: `${tone}26`, color: tone }}
               aria-label={q.is_correct ? 'Correct' : partial ? 'Partly correct' : 'Wrong'}>

@@ -244,7 +244,7 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
             </div>
 
             {visible && (
-              <div className="rounded-lg border border-border bg-white/[0.03] p-4" aria-live="polite">
+              <div className="rounded-lg border border-border bg-muted p-4" aria-live="polite">
                 <div className="mb-2.5 flex justify-between gap-3 text-sm">
                   <span className={cn(progress.stage === 'failed' && 'text-destructive-text', progress.stage === 'done' && 'text-success-text')}>
                     {generationLabel(progress.stage, progress.attempt, n, progress.batches.done, progress.batches.total)}

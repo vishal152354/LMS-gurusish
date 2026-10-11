@@ -2,9 +2,9 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { CheckCircle2, CircleDashed, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Status colours, validated for colour-vision deficiency on the dark surface
-// (teal vs red ΔE 10.7 deutan). Always shown with an icon, label and count.
-export const ANSWER_COLORS = { correct: '#2dd4bf', wrong: '#f87171', unanswered: '#6b7280' } as const
+// Status colours, validated for colour-vision deficiency on the light surface
+// (teal vs red, distinct for deutan vision). Always shown with an icon, label and count.
+export const ANSWER_COLORS = { correct: '#0f9f8f', wrong: '#e5484d', unanswered: '#b4aec8' } as const
 
 const META = {
   correct: { label: 'Correct', icon: CheckCircle2 },
@@ -29,7 +29,7 @@ export function AnswerDonut({ correct, wrong, unanswered = 0, size = 160, marks,
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             {/* track */}
-            <Pie data={[{ value: 1 }]} dataKey="value" innerRadius="70%" outerRadius="100%" fill="rgb(255 255 255 / 0.06)" stroke="none" isAnimationActive={false} />
+            <Pie data={[{ value: 1 }]} dataKey="value" innerRadius="70%" outerRadius="100%" fill="rgb(108 93 211 / 0.08)" stroke="none" isAnimationActive={false} />
             <Pie
               data={slices}
               dataKey="value"

@@ -62,7 +62,7 @@ export default function RosterPage() {
             <Card>
               <CardContent className="p-5 text-sm">
                 <p className="flex items-center gap-2 font-semibold"><FileSpreadsheet className="size-4 text-accent" />Expected format</p>
-                <pre className="mt-3 rounded-md border border-border bg-black/30 p-3 font-mono text-xs leading-relaxed text-muted-foreground">roll_number,name,email{'\n'}CS2023001,Asha R,asha@college.edu{'\n'}CS2023002,Rahul K,</pre>
+                <pre className="mt-3 rounded-md border border-border bg-muted p-3 font-mono text-xs leading-relaxed text-muted-foreground">roll_number,name,email{'\n'}CS2023001,Asha R,asha@college.edu{'\n'}CS2023002,Rahul K,</pre>
                 <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                   <span className="font-semibold text-foreground">name</span> and <span className="font-semibold text-foreground">email</span> are optional; email sends an invite.
                   Format the roll number column as <span className="font-semibold text-foreground">Text</span> in Excel — long numbers otherwise become 7.15E+11 and those rows are skipped.
