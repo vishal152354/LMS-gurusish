@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from ..database.db import get_conn
+from ..services import content_library
 from ..services.okf_pipeline import run_pipeline, get_pipeline_status
 from ..services.hermes_client import hermes_client
 
@@ -358,7 +359,7 @@ async def my_tests(roll_number: str):
     conn = get_conn()
     rows = conn.execute(
         """SELECT e.id AS event_id, e.title, e.upload_id, e.status, e.created_at,
-                  e.num_questions, e.marks_per_question, e.total_marks
+                  e.num_questions, e.marks_per_question, e.total_marks, e.upload_ids
            FROM event_students es
            JOIN viva_events e ON e.id = es.event_id
            WHERE es.roll_number = ?
@@ -385,7 +386,7 @@ async def my_tests(roll_number: str):
             "event_id":      e["event_id"],
             "title":         e["title"] or "Viva Examination",
             "upload_id":     e["upload_id"],
-            "filename":      (upload["display_name"] or upload["filename"]) if upload else e["upload_id"],
+            "filename":      content_library.content_names(conn, e) or e["upload_id"],
             "ready":         bool(upload["okf_ready"]) if upload else False,
             "num_questions": n_q,
             "max_marks":     _max_marks(e),

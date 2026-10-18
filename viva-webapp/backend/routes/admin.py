@@ -1,15 +1,13 @@
-import os, re, csv, io, uuid, hashlib, hmac
-from datetime import datetime
+import os, hashlib, hmac
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from ..database.db import get_conn, _hash
-from .student import SESSIONS_ROOT
+from ..services import content_library
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-ROLL_RE = re.compile(r"^[A-Za-z0-9/-]{1,32}$")
 
 # ═══════════════════════════════════════════════════════════
 #  AUTH  (same stateless token scheme as teachers, own namespace)
@@ -58,6 +56,7 @@ async def admin_stats(token: str):
         "teachers": conn.execute("SELECT COUNT(*) FROM professors").fetchone()[0],
         "students": conn.execute("SELECT COUNT(*) FROM students").fetchone()[0],
         "tests":    conn.execute("SELECT COUNT(*) FROM viva_events").fetchone()[0],
+        "content":  conn.execute("SELECT COUNT(*) FROM uploads WHERE is_library=1").fetchone()[0],
         "attempts": conn.execute("SELECT COUNT(*) FROM viva_sessions WHERE session_status='completed'").fetchone()[0],
     }
     conn.close()
@@ -65,13 +64,43 @@ async def admin_stats(token: str):
 
 
 # ═══════════════════════════════════════════════════════════
-#  TEACHERS  (stored in the professors table)
+#  CONTENT LIBRARY  (admins upload; teachers build tests from it)
 # ═══════════════════════════════════════════════════════════
 
-class TeacherCreate(BaseModel):
-    username: str
-    password: str
+class RenameRequest(BaseModel):
     display_name: str
+
+
+@router.post("/content/upload")
+async def upload_content(background_tasks: BackgroundTasks, token: str = Form(...), file: UploadFile = File(...)):
+    a = _auth(token)
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "That file is empty.")
+    return content_library.store_upload(a["id"], a["display_name"] or "Administrator", file.filename, raw, background_tasks)
+
+
+@router.get("/content")
+async def list_content(token: str):
+    _auth(token)
+    return content_library.list_library()
+
+
+@router.patch("/content/{upload_id}")
+async def rename_content(upload_id: str, req: RenameRequest, token: str):
+    _auth(token)
+    return content_library.rename_upload(upload_id, req.display_name)
+
+
+@router.delete("/content/{upload_id}")
+async def delete_content(upload_id: str, token: str):
+    _auth(token)
+    return content_library.delete_upload(upload_id)
+
+
+# ═══════════════════════════════════════════════════════════
+#  TEACHERS  (stored in the professors table; admins view, reset passwords and remove)
+# ═══════════════════════════════════════════════════════════
 
 class PasswordReset(BaseModel):
     password: str
@@ -91,37 +120,10 @@ async def list_teachers(token: str):
         out.append({
             "id": r["id"], "username": r["username"], "display_name": r["display_name"],
             "created_at": r["created_at"],
-            "content_count": conn.execute("SELECT COUNT(*) FROM uploads WHERE professor_id=?", (r["id"],)).fetchone()[0],
             "test_count": conn.execute("SELECT COUNT(*) FROM viva_events WHERE professor_id=?", (r["id"],)).fetchone()[0],
         })
     conn.close()
     return out
-
-
-@router.post("/teachers")
-async def create_teacher(token: str, req: TeacherCreate):
-    _auth(token)
-    username = req.username.strip()
-    name = req.display_name.strip()
-    if not re.fullmatch(r"[A-Za-z0-9._-]{3,32}", username):
-        raise HTTPException(400, "Username must be 3–32 letters, numbers, dots, dashes or underscores.")
-    if not name:
-        raise HTTPException(400, "Enter the teacher's name.")
-    _check_password(req.password)
-    conn = get_conn()
-    if conn.execute("SELECT 1 FROM professors WHERE username=?", (username,)).fetchone():
-        conn.close()
-        raise HTTPException(409, f"The username “{username}” is already taken.")
-    tid = f"prof_{uuid.uuid4().hex[:12]}"
-    now = datetime.utcnow().isoformat()
-    conn.execute(
-        "INSERT INTO professors (id, username, password_hash, display_name, created_at) VALUES (?,?,?,?,?)",
-        (tid, username, _hash(req.password), name, now),
-    )
-    conn.commit()
-    conn.close()
-    return {"id": tid, "username": username, "display_name": name, "created_at": now,
-            "content_count": 0, "test_count": 0}
 
 
 @router.post("/teachers/{teacher_id}/password")
@@ -142,11 +144,9 @@ async def delete_teacher(teacher_id: str, token: str):
     _auth(token)
     conn = get_conn()
     tests = conn.execute("SELECT COUNT(*) FROM viva_events WHERE professor_id=?", (teacher_id,)).fetchone()[0]
-    content = conn.execute("SELECT COUNT(*) FROM uploads WHERE professor_id=?", (teacher_id,)).fetchone()[0]
-    if tests or content:
+    if tests:
         conn.close()
-        raise HTTPException(409, f"This teacher still has {tests} test(s) and {content} content file(s). "
-                                 "They must delete those before the account can be removed.")
+        raise HTTPException(409, f"This teacher still has {tests} test(s). They must delete those before the account can be removed.")
     cur = conn.execute("DELETE FROM professors WHERE id=?", (teacher_id,))
     conn.commit()
     conn.close()
@@ -156,26 +156,8 @@ async def delete_teacher(teacher_id: str, token: str):
 
 
 # ═══════════════════════════════════════════════════════════
-#  STUDENTS
+#  STUDENTS  (they join themselves with roll number + name; admins only view and tidy up)
 # ═══════════════════════════════════════════════════════════
-
-class StudentCreate(BaseModel):
-    roll_number: str
-    name: str
-
-
-def _insert_student(conn, roll: str, name: str) -> bool:
-    """Add a student; returns False if the roll number already exists."""
-    if conn.execute("SELECT 1 FROM students WHERE id=?", (roll,)).fetchone():
-        return False
-    on_roster = conn.execute("SELECT 1 FROM event_students WHERE roll_number=?", (roll,)).fetchone()
-    conn.execute(
-        "INSERT INTO students (id,roll_number,name,master_folder,total_uploads,created_at,roster_uploaded) "
-        "VALUES (?,?,?,?,0,?,?)",
-        (roll, roll, name, str(SESSIONS_ROOT / roll), datetime.utcnow().isoformat(), 1 if on_roster else 0),
-    )
-    return True
-
 
 @router.get("/students")
 async def list_students(token: str):
@@ -188,51 +170,6 @@ async def list_students(token: str):
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
-
-
-@router.post("/students")
-async def create_student(token: str, req: StudentCreate):
-    _auth(token)
-    roll = req.roll_number.strip().upper()
-    name = req.name.strip()
-    if not ROLL_RE.fullmatch(roll):
-        raise HTTPException(400, "Roll number: letters, numbers, “-” or “/” only (max 32).")
-    if len(name) < 2:
-        raise HTTPException(400, "Enter the student's full name.")
-    conn = get_conn()
-    if not _insert_student(conn, roll, name):
-        conn.close()
-        raise HTTPException(409, f"A student with roll number {roll} already exists.")
-    conn.commit()
-    conn.close()
-    return {"id": roll, "roll_number": roll, "name": name, "tests_taken": 0,
-            "created_at": datetime.utcnow().isoformat()}
-
-
-@router.post("/students/import")
-async def import_students(token: str, file: UploadFile = File(...)):
-    """CSV with roll_number,name columns (a header row is optional)."""
-    _auth(token)
-    text = (await file.read()).decode("utf-8-sig", errors="replace")
-    added, skipped, invalid = 0, 0, []
-    conn = get_conn()
-    for i, row in enumerate(csv.reader(io.StringIO(text)), 1):
-        if not row or not any(c.strip() for c in row):
-            continue
-        roll = row[0].strip().upper()
-        name = row[1].strip() if len(row) > 1 else ""
-        if i == 1 and roll.lower().replace(" ", "_") in ("roll_number", "roll", "roll_no"):
-            continue                                    # header
-        if not ROLL_RE.fullmatch(roll) or len(name) < 2:
-            invalid.append(i)
-            continue
-        if _insert_student(conn, roll, name):
-            added += 1
-        else:
-            skipped += 1
-    conn.commit()
-    conn.close()
-    return {"added": added, "skipped": skipped, "invalid_rows": invalid[:20], "invalid_count": len(invalid)}
 
 
 @router.delete("/students/{student_id}")
@@ -249,3 +186,62 @@ async def delete_student(student_id: str, token: str):
     if not cur.rowcount:
         raise HTTPException(404, "Student not found")
     return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════
+#  TEST RESULTS  (every teacher's tests, read-only)
+# ═══════════════════════════════════════════════════════════
+
+def _event(event_id: str):
+    conn = get_conn()
+    e = conn.execute("SELECT * FROM viva_events WHERE id=?", (event_id,)).fetchone()
+    conn.close()
+    if not e:
+        raise HTTPException(404, "Test not found")
+    return e
+
+
+@router.get("/tests")
+async def list_tests(token: str):
+    from .professor import _event_marks, _types_of
+    _auth(token)
+    conn = get_conn()
+    events = conn.execute(
+        """SELECT e.*, p.display_name AS teacher_name, p.username AS teacher_username
+           FROM viva_events e
+           LEFT JOIN professors p ON p.id = e.professor_id
+           ORDER BY e.created_at DESC"""
+    ).fetchall()
+    out = []
+    for e in events:
+        type_marks, total_marks = _event_marks(e)
+        scores = [r[0] for r in conn.execute(
+            """SELECT m.total FROM marks m JOIN viva_sessions s ON s.id = m.session_id
+               WHERE s.event_id=? AND m.total IS NOT NULL""", (e["id"],)).fetchall()]
+        avg = round(sum(scores) / len(scores) / total_marks * 100) if scores and total_marks else None
+        out.append({
+            "event_id": e["id"], "title": e["title"], "event_date": e["event_date"], "created_at": e["created_at"],
+            "teacher_name": e["teacher_name"] or "—", "teacher_username": e["teacher_username"],
+            "content_name": content_library.content_names(conn, e),
+            "num_questions": e["num_questions"] or 0, "question_types": _types_of(e),
+            "type_marks": type_marks, "total_marks": total_marks,
+            "roster_count": conn.execute("SELECT COUNT(*) FROM event_students WHERE event_id=?", (e["id"],)).fetchone()[0],
+            "completed": len(scores),
+            "average_pct": avg,
+        })
+    conn.close()
+    return out
+
+
+@router.get("/tests/{event_id}/results")
+async def test_results(event_id: str, token: str):
+    from .professor import event_results
+    _auth(token)
+    return event_results(_event(event_id))
+
+
+@router.get("/tests/{event_id}/export")
+async def test_export(event_id: str, token: str):
+    from .professor import export_event
+    _auth(token)
+    return export_event(_event(event_id))

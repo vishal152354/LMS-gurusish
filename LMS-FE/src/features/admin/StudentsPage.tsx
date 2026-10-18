@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { FileSpreadsheet, Search, Trash2, UserPlus } from 'lucide-react'
+import { Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { FileDropzone } from '@/components/FileDropzone'
 import { PageHeader } from '@/components/PageHeader'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -21,17 +16,9 @@ import { apiError } from '@/services/http'
 import type { ManagedStudent } from '@/types/api'
 import { adminChanged } from './adminEvents'
 
-const schema = z.object({
-  roll_number: z.string().trim().min(1, 'Enter a roll number')
-    .regex(/^[A-Za-z0-9/-]+$/, 'Use letters, numbers, “-” or “/” only').max(32, 'That roll number is too long'),
-  name: z.string().trim().min(2, 'Enter the student’s full name').max(80),
-})
-type Values = z.infer<typeof schema>
-
 export default function StudentsPage() {
   const [students, setStudents] = useState<ManagedStudent[] | null>(null)
   const [query, setQuery] = useState('')
-  const [importing, setImporting] = useState(false)
   const [toDelete, setToDelete] = useState<ManagedStudent | null>(null)
 
   const load = useCallback(async () => {
@@ -44,21 +31,6 @@ export default function StudentsPage() {
     return (students ?? []).filter((s) => !q || s.roll_number.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
   }, [students, query])
 
-  async function importCsv(file: File) {
-    if (!file.name.toLowerCase().endsWith('.csv')) return toast.error('Upload a .csv file')
-    setImporting(true)
-    try {
-      const r = await adminApi.importStudents(file)
-      const parts = [`${r.added} added`]
-      if (r.skipped) parts.push(`${r.skipped} already existed`)
-      if (r.invalid_count) parts.push(`${r.invalid_count} row${r.invalid_count === 1 ? '' : 's'} skipped (line ${r.invalid_rows.join(', ')})`)
-      ;(r.invalid_count ? toast.warning : toast.success)('Students imported', { description: parts.join(' · ') })
-      await load()
-      adminChanged()
-    } catch (e) { toast.error('Import failed', { description: apiError(e) }) }
-    finally { setImporting(false) }
-  }
-
   async function remove(s: ManagedStudent) {
     try {
       await adminApi.deleteStudent(s.id)
@@ -70,20 +42,8 @@ export default function StudentsPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Students" description="Add students one at a time or import a class list. Students sign in with their roll number and name." />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
-        <div className="flex flex-col gap-6">
-          <AddStudentCard onAdded={(s) => { setStudents((xs) => [...(xs ?? []), s].sort((a, b) => a.roll_number.localeCompare(b.roll_number))); adminChanged() }} />
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><FileSpreadsheet className="size-4 text-accent" />Import a class list</CardTitle></CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <FileDropzone accept=".csv" hint={importing ? 'Importing…' : 'Drop a CSV here or click to choose'} disabled={importing} onFile={importCsv} />
-              <pre className="rounded-md border border-border bg-muted p-3 font-mono text-xs leading-relaxed text-muted-foreground">roll_number,name{'\n'}CS2023001,Asha R{'\n'}CS2023002,Rahul K</pre>
-              <p className="text-xs text-muted-foreground">Existing roll numbers are skipped, so it’s safe to import the same list twice.</p>
-            </CardContent>
-          </Card>
-        </div>
-
+      <PageHeader title="Students" description="Everyone who has signed in as a student. Students join themselves with their roll number and name; teachers assign them to tests with a roster." />
+      <div>
         <Card className="h-fit overflow-hidden">
           <div className="border-b border-border p-3">
             <div className="relative">
@@ -94,7 +54,7 @@ export default function StudentsPage() {
           {!students ? (
             <div className="flex flex-col gap-2 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-10" />)}</div>
           ) : shown.length === 0 ? (
-            <p className="p-10 text-center text-sm text-muted-foreground">{students.length ? 'No students match your search.' : 'No students yet.'}</p>
+            <p className="p-10 text-center text-sm text-muted-foreground">{students.length ? 'No students match your search.' : 'No students have signed in yet.'}</p>
           ) : (
             <div className="max-h-[560px] overflow-y-auto">
               <Table>
@@ -145,38 +105,5 @@ export default function StudentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-}
-
-function AddStudentCard({ onAdded }: { onAdded: (s: ManagedStudent) => void }) {
-  const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { roll_number: '', name: '' } })
-
-  async function onSubmit(v: Values) {
-    try {
-      const s = await adminApi.createStudent(v)
-      onAdded(s)
-      toast.success(`${s.name} added`, { description: `Roll number ${s.roll_number}` })
-      form.reset()
-      form.setFocus('roll_number')
-    } catch (e) { form.setError('roll_number', { message: apiError(e) }) }
-  }
-
-  return (
-    <Card>
-      <CardHeader><CardTitle className="flex items-center gap-2"><UserPlus className="size-4 text-accent" />Add a student</CardTitle></CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-            <FormField control={form.control} name="roll_number" render={({ field }) => (
-              <FormItem><FormLabel>Roll number</FormLabel><FormControl><Input placeholder="e.g. CS2023001" autoCapitalize="characters" autoComplete="off" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem><FormLabel>Full name</FormLabel><FormControl><Input placeholder="As on their college ID" autoComplete="off" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <Button type="submit" size="lg" loading={form.formState.isSubmitting}>Add student</Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
   )
 }

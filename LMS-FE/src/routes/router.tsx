@@ -19,6 +19,9 @@ const LivePage = lazy(() => import('@/features/professor/LivePage'))
 const AdminLayout = lazy(() => import('@/features/admin/AdminLayout'))
 const TeachersPage = lazy(() => import('@/features/admin/TeachersPage'))
 const StudentsPage = lazy(() => import('@/features/admin/StudentsPage'))
+const AdminContentPage = lazy(() => import('@/features/admin/ContentPage'))
+const ResultsListPage = lazy(() => import('@/features/admin/ResultsListPage'))
+const TestResultsPage = lazy(() => import('@/features/admin/TestResultsPage'))
 
 const s = (el: ReactNode) => <Suspense fallback={<FullPageSpinner />}>{el}</Suspense>
 
@@ -65,9 +68,12 @@ export const router = createBrowserRouter([
         path: '/admin',
         element: s(<AdminLayout />),
         children: [
-          { index: true, element: <Navigate to="teachers" replace /> },
+          { index: true, element: <Navigate to="content" replace /> },
+          { path: 'content', element: s(<AdminContentPage />) },
           { path: 'teachers', element: s(<TeachersPage />) },
           { path: 'students', element: s(<StudentsPage />) },
+          { path: 'results', element: s(<ResultsListPage />) },
+          { path: 'results/:eventId', element: s(<TestResultsPage />) },
         ],
       },
     ],

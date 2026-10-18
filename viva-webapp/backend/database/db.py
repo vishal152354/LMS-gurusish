@@ -250,6 +250,10 @@ def init_db():
     _add_col(conn, "viva_events",   "questions_json",     "TEXT")
     _add_col(conn, "viva_events",   "type_marks",         "TEXT")   # {"mcq": 1, "fill_blank": 2, "match": 4}
     _add_col(conn, "viva_events",   "total_marks",        "REAL")   # sum of every question's marks
+    _add_col(conn, "viva_events",   "upload_ids",         "TEXT")   # JSON list of library items the paper uses
+    _add_col(conn, "uploads",       "is_library",         "INTEGER DEFAULT 0")  # admin content library
+    # Content teachers uploaded before the admin-managed library becomes library content
+    conn.execute("UPDATE uploads SET is_library=1 WHERE professor_id IS NOT NULL AND student_id IS NULL AND COALESCE(is_library,0)=0")
 
     conn.commit()
 

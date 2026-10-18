@@ -34,10 +34,10 @@ export const TOURS: Record<string, TourStep[]> = {
   'prof-content': [
     { title: 'Welcome, Teacher!', text: 'I’ll show you how to go from a document to a finished test.' },
     { target: 'prof-nav', title: 'Your dashboard', text: 'Content → Events → Roster → Results. That’s the whole journey, left to right.' },
-    { target: 'content-drop', title: 'Step 1: upload material', text: 'Drop a PDF or Word file here. I’ll build a knowledge graph from it — wait until it says Ready.' },
+    { target: 'content-library', title: 'Step 1: your content library', text: 'Your admin uploads the course material. Anything marked Ready can be used for a test.' },
   ],
   'prof-events': [
-    { target: 'event-form', title: 'Step 2: create a test', text: 'Give it a title and choose the content it’s based on.' },
+    { target: 'event-form', title: 'Step 2: create a test', text: 'Give it a title and tick the content it’s based on — you can pick more than one.' },
     { target: 'question-types', title: 'Pick question types and marks', text: 'Choose how many MCQs, fill-in-the-blanks and match-the-following questions you want, and how many marks each type is worth. I write them all at once.' },
     { target: 'create-test', title: 'Generate!', text: 'Press Create test. A progress bar shows each batch of questions as it’s written.' },
   ],

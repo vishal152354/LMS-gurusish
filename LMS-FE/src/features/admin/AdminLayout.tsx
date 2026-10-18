@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { BookOpenCheck, GraduationCap, LogOut, Presentation, Users } from 'lucide-react'
+import { BarChart3, BookOpenCheck, FileText, GraduationCap, LogOut, Presentation, Users } from 'lucide-react'
 import { Brand } from '@/components/Brand'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,8 +13,10 @@ import type { AdminStats } from '@/types/api'
 import { ADMIN_CHANGED } from './adminEvents'
 
 const NAV = [
+  { to: 'content', label: 'Content', icon: FileText },
   { to: 'teachers', label: 'Teachers', icon: Presentation },
   { to: 'students', label: 'Students', icon: GraduationCap },
+  { to: 'results', label: 'Test results', icon: BarChart3 },
 ]
 
 export default function AdminLayout() {
@@ -57,7 +59,8 @@ export default function AdminLayout() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 lg:px-6">
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <Stat label="Content" value={stats?.content} icon={FileText} />
           <Stat label="Teachers" value={stats?.teachers} icon={Presentation} />
           <Stat label="Students" value={stats?.students} icon={Users} />
           <Stat label="Tests" value={stats?.tests} icon={BookOpenCheck} />

@@ -18,12 +18,14 @@ _log = logging.getLogger("question_gen")
 TYPES = ("mcq", "fill_blank", "match")
 BATCH_SIZE = {"mcq": 5, "fill_blank": 5, "match": 2}
 MAX_PARALLEL = 4            # OpenRouter free tier allows 20 requests/minute
+SOURCE_CHARS = 12000        # source text sent with each batch (split across the chosen content items)
 BLANK = "____"
 
 SYSTEM = (
     "You are an examiner writing questions for a test. Use ONLY facts stated in the source. "
     "Ask about the subject matter itself — never about the document, its headings, sections, "
     "concepts or structure, and never about email addresses, phone numbers or page details. "
+    "Every question must test a DIFFERENT fact — never ask the same thing twice, even in other words. "
     "Reply with ONLY a JSON array — no prose, no markdown fences."
 )
 
@@ -71,6 +73,94 @@ def _is_meta(*texts) -> bool:
 
 def _key(q: dict) -> str:
     return re.sub(r"\W+", "", q.get("question", "").lower())
+
+
+# ── repeat detection ──────────────────────────────────────────
+# Two questions repeat when they test the same fact, whatever the wording or type.
+
+_STOP = set("""a an the of to in on for and or is are was were be been by with as at from that this which what
+who whom how why when where does do did it its into than then their there these those can will would should could
+about between each used use using following match item items correct statement true false""".split())
+
+
+def _stem(w: str) -> str:
+    for suf in ("ing", "ies", "es", "ed", "s"):
+        if len(w) > len(suf) + 3 and w.endswith(suf):
+            return w[: -len(suf)] + ("y" if suf == "ies" else "")
+    return w
+
+
+def _words(text: str) -> set:
+    return {_stem(w) for w in re.findall(r"[a-z0-9]+", (text or "").lower()) if w not in _STOP and len(w) > 2}
+
+
+def _jaccard(a: set, b: set) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def _fingerprint(q: dict) -> dict:
+    t = q.get("type", "mcq")
+    if t == "match":
+        pairs = [(_words(l), _words(r), _norm(l), _norm(r)) for l, r in zip(q["left"], q["right"])]
+        return {"type": t, "words": _words(" ".join(q["left"] + q["right"])), "answer": "", "pairs": pairs,
+                "left": {p[2] for p in pairs}}
+    if t == "fill_blank":
+        answer = q["answer"]
+        text = q["question"].replace(BLANK, answer)
+    else:
+        answer = q["options"][q["correct_index"]]
+        text = f'{q["question"]} {answer}'
+    return {"type": t, "words": _words(text), "answer": _norm(answer), "pairs": [], "left": set()}
+
+
+def _covers_pair(m: dict, o: dict) -> bool:
+    """A match pair that gives away an MCQ / fill-in answer (the answer is one side of the pair,
+    and the other side is what the question asks about)."""
+    for lw, rw, ln, rn in m["pairs"]:
+        if o["answer"] and o["answer"] in (ln, rn) and len((lw | rw) & o["words"]) >= 2:
+            return True
+    return False
+
+
+def _strip_common(fp: dict, common: set) -> dict:
+    """Drop words shared by much of the paper (e.g. the subject's name) — they say nothing about the fact."""
+    if not common:
+        return fp
+    return {**fp, "words": fp["words"] - common,
+            "pairs": [(lw - common, rw - common, ln, rn) for lw, rw, ln, rn in fp["pairs"]]}
+
+
+def _common_words(fps: list) -> set:
+    from collections import Counter
+    df = Counter(w for fp in fps for w in fp["words"])
+    cutoff = max(3, 0.25 * len(fps))
+    return {w for w, n in df.items() if n >= cutoff}
+
+
+def is_repeat(a: dict, b: dict) -> bool:
+    if a["type"] == "match" and b["type"] == "match":
+        return len(a["left"] & b["left"]) >= 2 or _jaccard(a["words"], b["words"]) >= 0.5
+    if a["type"] == "match":
+        return _covers_pair(a, b)
+    if b["type"] == "match":
+        return _covers_pair(b, a)
+    sim = _jaccard(a["words"], b["words"])
+    if sim >= 0.6 or (bool(a["answer"]) and a["answer"] == b["answer"] and sim >= 0.3):
+        return True
+    # one question's answer is stated in the other (same fact asked the other way round)
+    for x, y in ((a, b), (b, a)):
+        aw = _words(x["answer"])
+        if aw and aw <= y["words"] and sim >= 0.4:
+            return True
+    return False
+
+
+def _brief(q: dict) -> str:
+    if q.get("type") == "match":
+        return "Match: " + ", ".join(f"{l} → {r}" for l, r in zip(q["left"], q["right"]))
+    if q.get("type") == "fill_blank":
+        return q["question"].replace(BLANK, q["answer"])
+    return f'{q["question"]} ({q["options"][q["correct_index"]]})'
 
 
 def _valid_mcq(o: dict):
@@ -171,10 +261,15 @@ def _focus_groups(graph: dict, k: int) -> list[list[str]]:
     return groups
 
 
-async def generate_paper(client, graph: dict, summary: str, counts: dict, on_progress=None) -> list:
-    """Generate the paper. `counts` = {"mcq": n, "fill_blank": n, "match": n}."""
+async def generate_paper(client, graph: dict, summary: str, counts: dict, on_progress=None,
+                         avoid: list | None = None, stats: dict | None = None) -> list:
+    """Generate the paper. `counts` = {"mcq": n, "fill_blank": n, "match": n}.
+
+    No two questions in the paper test the same fact. Questions from `avoid` (earlier tests
+    on the same content) are steered away from and only reused if the paper would otherwise
+    come up short."""
     counts = {t: max(0, int(counts.get(t, 0) or 0)) for t in TYPES}
-    source = (summary or json.dumps(graph or {}))[:8000]
+    source = (summary or json.dumps(graph or {}))[:SOURCE_CHARS]
 
     batches = []                              # (type, size)
     for t in TYPES:
@@ -198,11 +293,20 @@ async def generate_paper(client, graph: dict, summary: str, counts: dict, on_pro
             except Exception:
                 pass
 
-    async def run_batch(i, qtype, size, focus):
+    avoid = [q for q in (avoid or []) if isinstance(q, dict) and q.get("question")]
+    avoid_fps = [_fingerprint(q) for q in avoid]
+
+    def already_asked(qs: list) -> str:
+        if not qs:
+            return ""
+        lines = "\n".join(f"- {_brief(q)[:140]}" for q in qs[-30:])
+        return f"Already asked — do NOT repeat or rephrase any of these facts:\n{lines}\n"
+
+    async def run_batch(i, qtype, size, focus, asked=()):
         nonlocal done
         hint = f"Focus on these concepts where possible: {'; '.join(focus)}.\n" if focus else ""
         ask = size + 1                        # one spare, so a rejected question doesn't leave the paper short
-        msg = (INSTRUCTIONS[qtype].format(n=ask) + "\n" + hint +
+        msg = (INSTRUCTIONS[qtype].format(n=ask) + "\n" + hint + already_asked(list(asked)) +
                f"Return ONLY a JSON array of exactly {ask} objects.\n\nSOURCE:\n{source}")
         max_tokens = 400 * ask + 300
         got = []
@@ -224,36 +328,66 @@ async def generate_paper(client, graph: dict, summary: str, counts: dict, on_pro
         return qtype, got[:size]
 
     report("generating")
-    results = await asyncio.gather(*[run_batch(i, t, n, groups[i] if i < len(groups) else [])
+    results = await asyncio.gather(*[run_batch(i, t, n, groups[i] if i < len(groups) else [], avoid)
                                      for i, (t, n) in enumerate(batches)])
 
-    # merge by type, drop duplicates, keep the requested counts
+    # merge by type: drop any question that repeats a fact already in the paper;
+    # park ones that repeat an earlier test in `reserve` (used only if the paper is short)
     report("checking")
     by_type = {t: [] for t in TYPES}
-    seen = set()
+    kept, kept_fps, reserve = [], [], []
+    stats_counts = {"repeat": 0, "earlier_test": 0}
+
+    common: set = set()
+
+    def offer(qtype, q):
+        if len(by_type[qtype]) >= counts[qtype]:
+            return
+        fp = _strip_common(_fingerprint(q), common)
+        if any(is_repeat(fp, k) for k in kept_fps):
+            stats_counts["repeat"] += 1
+            return
+        if any(is_repeat(fp, a) for a in avoid_fps):
+            stats_counts["earlier_test"] += 1
+            reserve.append((qtype, q, fp))
+            return
+        kept.append(q); kept_fps.append(fp); by_type[qtype].append(q)
+
+    # words common to much of this content (names, the main subject) don't distinguish facts
+    common = _common_words([_fingerprint(q) for _, qs in results for q in qs] + avoid_fps)
+    avoid_fps = [_strip_common(fp, common) for fp in avoid_fps]
+
     for qtype, qs in results:
         for q in qs:
-            k = _key(q)
-            if k and k not in seen:
-                seen.add(k)
-                by_type[qtype].append(q)
+            offer(qtype, q)
 
-    # one top-up round for any type that came back short
-    short = {t: counts[t] - len(by_type[t]) for t in TYPES if len(by_type[t]) < counts[t]}
-    if short:
-        _log.info("topping up: %s", short)
+    # up to two top-up rounds for types that came back short, told what's already asked
+    for round_no in range(2):
+        short = {t: counts[t] - len(by_type[t]) for t in TYPES if len(by_type[t]) < counts[t]}
+        if not short:
+            break
+        _log.info("topping up (round %d): %s", round_no + 1, short)
         total_batches += len(short)
         report("generating")
-        extra = await asyncio.gather(*[run_batch(100 + j, t, n, []) for j, (t, n) in enumerate(short.items())])
+        extra = await asyncio.gather(*[run_batch(100 * (round_no + 1) + j, t, n, [], kept + avoid)
+                                       for j, (t, n) in enumerate(short.items())])
+        report("checking")
         for qtype, qs in extra:
             for q in qs:
-                k = _key(q)
-                if k and k not in seen and len(by_type[qtype]) < counts[qtype]:
-                    seen.add(k)
-                    by_type[qtype].append(q)
+                offer(qtype, q)
+
+    # still short: fall back to questions that overlap an earlier test (never one already in this paper)
+    reused = 0
+    for qtype, q, fp in reserve:
+        if len(by_type[qtype]) < counts[qtype] and not any(is_repeat(fp, k) for k in kept_fps):
+            kept.append(q); kept_fps.append(fp); by_type[qtype].append(q)
+            reused += 1
+    if stats is not None:
+        stats.update(repeats_dropped=stats_counts["repeat"], reused_from_earlier=reused)
 
     paper = [q for t in TYPES for q in by_type[t][:counts[t]]]
-    _log.info("paper: %s", {t: len(by_type[t][:counts[t]]) for t in TYPES})
+    _log.info("paper: %s (dropped %d repeats, %d overlapping earlier tests)",
+              {t: len(by_type[t][:counts[t]]) for t in TYPES}, stats_counts["repeat"], stats_counts["earlier_test"])
     return paper
 
 

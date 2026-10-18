@@ -13,16 +13,17 @@ export function ClassChart({ rows }: { rows: ResultRow[] }) {
   const data = rows
     .filter((r) => r.status === 'Completed' && r.max_marks)
     .map((r) => {
-      const pct = Math.round((Number(r.total) / r.max_marks) * 100)
-      return { roll: r.roll_number, name: r.student_name, first: r.student_name.split(' ')[0], pct, marks: `${r.total} / ${r.max_marks}` }
+      const raw = (Number(r.total) / r.max_marks) * 100
+      return { roll: r.roll_number, name: r.student_name, first: r.student_name.split(' ')[0], raw, pct: Math.round(raw), marks: `${r.total} / ${r.max_marks}` }
     })
     .sort((a, b) => b.pct - a.pct)
 
   if (data.length === 0) return null
-  const avg = Math.round(data.reduce((s, d) => s + d.pct, 0) / data.length)
+  // average the unrounded scores, so it matches the Average score card
+  const avg = Math.round(data.reduce((s, d) => s + d.raw, 0) / data.length)
   const top = data[0]
   const low = data[data.length - 1]
-  const passed = data.filter((d) => d.pct >= 40).length
+  const passed = data.filter((d) => d.raw >= 40).length
 
   return (
     <Card className="mt-6" data-tour="class-chart">

@@ -7,19 +7,16 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..database.db import get_conn
-from ..services.okf_pipeline import run_pipeline, get_pipeline_status
 from ..services.hermes_client import hermes_client
-from ..services import question_gen
+from ..services import question_gen, content_library
 
 router = APIRouter(prefix="/professor", tags=["professor"])
 
-UPLOADS_DIR = Path(os.path.expanduser("~/viva-webapp/data/professor-uploads"))
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 PROFESSOR_PIN = os.getenv("PROFESSOR_PIN", "prof1234")   # kept for backward-compat
 
@@ -74,84 +71,23 @@ async def professor_me(token: str):
 
 
 # ═══════════════════════════════════════════════════════════
-#  CONTENT UPLOAD
+#  CONTENT  (the admin's library; read-only for teachers)
 # ═══════════════════════════════════════════════════════════
 
-def _safe(filename: str) -> str:
-    return re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
+CONTENT_MANAGED = "Content is managed by your admin. Choose from the content library when you create a test."
+
 
 @router.post("/content/upload")
-async def upload_content(
-    background_tasks: BackgroundTasks,
-    token: str = Form(...),
-    file: UploadFile = File(...),
-):
-    prof = _auth(token)
-    ts        = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    safe_fn   = _safe(file.filename)
-    upload_id = f"{ts}_{safe_fn}"
-
-    dest_dir  = UPLOADS_DIR / prof["id"] / upload_id
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_path = dest_dir / safe_fn
-
-    raw = await file.read()
-    dest_path.write_bytes(raw)
-
-    conn = get_conn()
-    conn.execute(
-        """INSERT INTO uploads
-           (id, student_id, professor_id, filename, upload_path,
-            okf_bundle_path, graph_path, okf_ready, viva_completed, uploaded_at, display_name)
-           VALUES (?,NULL,?,?,?,?,?,0,0,?,?)""",
-        (upload_id, prof["id"], file.filename, str(dest_path), "", "",
-         datetime.utcnow().isoformat(), file.filename),
-    )
-    conn.commit()
-    conn.close()
-
-    async def _run():
-        result = await run_pipeline(
-            prof["id"], prof["display_name"], file.filename,
-            str(dest_path), ts, hermes_client, upload_id
-        )
-        if result.get("ok"):
-            c2 = get_conn()
-            c2.execute(
-                "UPDATE uploads SET okf_bundle_path=?,graph_path=?,okf_ready=1 WHERE id=?",
-                (result["bundle_path"], result["graph_path"], upload_id),
-            )
-            c2.commit()
-            c2.close()
-
-    background_tasks.add_task(_run)
-    return {"upload_id": upload_id, "filename": file.filename,
-            "status_url": f"/student/pipeline/status/{upload_id}"}
+async def upload_content(token: str = Form(...), file: UploadFile = File(None)):
+    _auth(token)
+    raise HTTPException(403, CONTENT_MANAGED)
 
 
 @router.get("/content")
 async def list_content(token: str):
-    prof = _auth(token)
-    conn = get_conn()
-    rows = conn.execute(
-        "SELECT * FROM uploads WHERE professor_id=? ORDER BY uploaded_at DESC",
-        (prof["id"],)
-    ).fetchall()
-    conn.close()
-    out = []
-    for u in rows:
-        st = get_pipeline_status(u["id"])
-        out.append({
-            "upload_id":   u["id"],
-            "filename":    u["filename"],
-            "display_name": u["display_name"] or u["filename"],
-            "okf_ready":   bool(u["okf_ready"]),
-            "uploaded_at": u["uploaded_at"],
-            "step":        st.get("step", 0),
-            "percentage":  st.get("percentage", 0),
-            "label":       st.get("label", ""),
-        })
-    return out
+    """The content library the admin has uploaded (read-only for teachers)."""
+    _auth(token)
+    return content_library.list_library()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -181,7 +117,8 @@ async def event_progress(progress_id: str, token: str):
 
 class CreateEventRequest(BaseModel):
     progress_id:        Optional[str] = None   # lets the UI poll generation progress
-    upload_id:          str
+    upload_ids:         Optional[list] = None  # library items to build the paper from
+    upload_id:          Optional[str] = None   # legacy: a single item
     title:              str
     num_questions:      int = 10   # legacy: MCQs only, used when question_types is absent
     # how many of each type, e.g. {"mcq": 5, "fill_blank": 3, "match": 2}
@@ -212,44 +149,66 @@ async def create_event(token: str, req: CreateEventRequest):
     pid = req.progress_id
     _set_event_progress(pid, "reading")
 
-    conn = get_conn()
-    upload = conn.execute(
-        "SELECT * FROM uploads WHERE id=? AND professor_id=?",
-        (req.upload_id, prof["id"])
-    ).fetchone()
-    if not upload:
-        conn.close()
-        raise HTTPException(404, "Content not found")
-    if not upload["okf_ready"]:
-        conn.close()
-        raise HTTPException(400, "Knowledge base is still processing. Please wait until it's ready.")
+    upload_ids = list(dict.fromkeys([u for u in (req.upload_ids or ([req.upload_id] if req.upload_id else [])) if u]))
+    if not upload_ids:
+        raise HTTPException(400, "Choose at least one content item.")
+    if len(upload_ids) > 10:
+        raise HTTPException(400, "Choose at most 10 content items.")
 
-    # Generate the MCQ paper NOW (pre-computed) so students start instantly.
-    graph = None
-    if upload["graph_path"] and Path(upload["graph_path"]).exists():
-        try:
-            graph = json.load(open(upload["graph_path"]))
-        except Exception:
-            graph = None
-    if not graph or not graph.get("nodes"):
+    conn = get_conn()
+    try:
+        uploads = content_library.library_uploads(conn, upload_ids)
+    except HTTPException:
+        conn.close()
+        raise
+    pending = [u["display_name"] or u["filename"] for u in uploads if not u["okf_ready"]]
+    if pending:
+        conn.close()
+        raise HTTPException(400, f"Still processing: {', '.join(pending)}. Please wait until it's ready.")
+
+    # Merge the chosen items' knowledge graphs, and give each an equal share of the source text
+    from ..services.prep_service import _load_source_text
+    graph, sources = {"nodes": [], "edges": []}, []
+    share = question_gen.SOURCE_CHARS // len(uploads)
+    for u in uploads:
+        g = None
+        if u["graph_path"] and Path(u["graph_path"]).exists():
+            try:
+                g = json.load(open(u["graph_path"]))
+            except Exception:
+                g = None
+        if g and g.get("nodes"):
+            graph["nodes"] += g.get("nodes", [])
+            graph["edges"] += g.get("edges", [])
+        summary = ""
+        if u["graph_path"]:
+            sp = Path(u["graph_path"]).parent / "knowledge-graph-summary.md"
+            if sp.exists():
+                summary = sp.read_text()
+        # The concept notes are the best source; the summary also holds outline text
+        # (node ids, "suggested viva path") that leads to questions about the document.
+        text = (_load_source_text(dict(u)) or summary or "").strip()
+        if text:
+            title = u["display_name"] or u["filename"]
+            sources.append(f"=== {title} ===\n{text[:share]}" if len(uploads) > 1 else text[:share])
+    if not graph["nodes"]:
         conn.close()
         _set_event_progress(pid, "failed")
         raise HTTPException(500, "Knowledge graph missing for this content; cannot build questions.")
+    source = "\n\n".join(sources)
 
-    summary = ""
-    gp = upload["graph_path"]
-    if gp:
-        sp = Path(gp).parent / "knowledge-graph-summary.md"
-        if sp.exists():
-            summary = sp.read_text()
-
-    # The concept notes themselves are the best source; the summary also holds
-    # outline text (node ids, "suggested viva path") that leads to questions about the document.
-    from ..services.prep_service import _load_source_text
-    source = _load_source_text(dict(upload)) or summary
+    # Steer away from questions already used in earlier tests on any of these items
+    earlier = []
+    for r in conn.execute("SELECT upload_id, upload_ids, questions_json FROM viva_events WHERE questions_json IS NOT NULL").fetchall():
+        if set(content_library.event_upload_ids(r)) & set(upload_ids):
+            try:
+                earlier.extend(json.loads(r["questions_json"]))
+            except Exception:
+                pass
     questions = await question_gen.generate_paper(
         hermes_client, graph, source, counts,
         on_progress=lambda stage, info: _set_event_progress(pid, stage, 0, **info),
+        avoid=earlier, stats=(gen_stats := {}),
     )
     if not questions:
         _set_event_progress(pid, "failed")
@@ -268,12 +227,12 @@ async def create_event(token: str, req: CreateEventRequest):
     conn.execute(
         """INSERT INTO viva_events
            (id,professor_id,upload_id,title,event_date,start_time,end_time,status,max_students,
-            num_questions,marks_per_question,questions_json,question_types,type_marks,total_marks,created_at)
-           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,?,?)""",
-        (event_id, prof["id"], req.upload_id, req.title,
+            num_questions,marks_per_question,questions_json,question_types,type_marks,total_marks,upload_ids,created_at)
+           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,?,?,?)""",
+        (event_id, prof["id"], upload_ids[0], req.title,
          req.event_date or now[:10], req.start_time or "", req.end_time or "", max_students,
          len(questions), marks_per_question, json.dumps(questions), json.dumps(made),
-         json.dumps(type_marks), total_marks, now),
+         json.dumps(type_marks), total_marks, json.dumps(upload_ids), now),
     )
     conn.commit()
     conn.close()
@@ -286,6 +245,8 @@ async def create_event(token: str, req: CreateEventRequest):
         "marks_per_question": marks_per_question,
         "type_marks":         type_marks,
         "total_marks":        total_marks,
+        # questions that overlap an earlier test on this content (only used when no fresh ones were left)
+        "reused_from_earlier": gen_stats.get("reused_from_earlier", 0),
     }
 
 
@@ -338,12 +299,13 @@ async def list_events(token: str):
             "SELECT COUNT(*) FROM viva_sessions WHERE event_id=? AND session_status='completed'",
             (e["id"],)
         ).fetchone()[0]
-        content = conn.execute("SELECT display_name, filename FROM uploads WHERE id=?", (e["upload_id"],)).fetchone()
+
         out.append({
             "event_id":     e["id"],
             "title":        e["title"],
             "upload_id":    e["upload_id"],
-            "content_name": (content["display_name"] or content["filename"]) if content else "",
+            "content_name": content_library.content_names(conn, e),
+            "upload_ids":   content_library.event_upload_ids(e),
             "event_date":   e["event_date"],
             "start_time":   e["start_time"],
             "end_time":     e["end_time"],
@@ -572,24 +534,31 @@ async def upload_roster(
 #  EXCEL / CSV EXPORT
 # ═══════════════════════════════════════════════════════════
 
+def _owned_event(event_id: str, prof: dict):
+    conn = get_conn()
+    event = conn.execute(
+        "SELECT * FROM viva_events WHERE id=? AND professor_id=?", (event_id, prof["id"])
+    ).fetchone()
+    conn.close()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    return event
+
+
 @router.get("/events/{event_id}/results")
 async def get_event_results(event_id: str, token: str):
-    """Return all roster students with statuses and marks for a professor's event."""
-    prof = _auth(token)
-    
+    """Return all roster students with statuses and marks for a teacher's event."""
+    return event_results(_owned_event(event_id, _auth(token)))
+
+
+def event_results(event) -> dict:
+    """Roster students with statuses and marks — shared by the teacher and admin views."""
     # Run no show checks first to update database status
     from .student import run_no_show_checks, _local_now
     run_no_show_checks()
-    
-    conn = get_conn()
-    event = conn.execute(
-        "SELECT * FROM viva_events WHERE id=? AND professor_id=?",
-        (event_id, prof["id"])
-    ).fetchone()
-    if not event:
-        conn.close()
-        raise HTTPException(404, "Event not found")
 
+    event_id = event["id"]
+    conn = get_conn()
     rows = conn.execute("""
         SELECT es.roll_number, es.name AS student_name,
                slots.id AS slot_id, slots.slot_start, slots.slot_end, 
@@ -737,20 +706,17 @@ async def get_event_results(event_id: str, token: str):
 
 @router.get("/events/{event_id}/export")
 async def export_marks(event_id: str, token: str):
-    prof = _auth(token)
-    
+    return export_event(_owned_event(event_id, _auth(token)))
+
+
+def export_event(event):
+    """Excel (or CSV fallback) of an event's results — shared by the teacher and admin views."""
     # Run no show checks first to update database status
     from .student import run_no_show_checks, _local_now
     run_no_show_checks()
-    
-    conn = get_conn()
-    event = conn.execute(
-        "SELECT * FROM viva_events WHERE id=? AND professor_id=?", (event_id, prof["id"])
-    ).fetchone()
-    if not event:
-        conn.close()
-        raise HTTPException(404, "Event not found")
 
+    event_id = event["id"]
+    conn = get_conn()
     rows = conn.execute("""
         SELECT es.roll_number, es.name AS student_name,
                slots.id AS slot_id, slots.slot_start, slots.slot_end, 
@@ -997,97 +963,14 @@ class PinRequest(BaseModel):
 
 @router.delete("/content/{upload_id}")
 async def delete_content(upload_id: str, token: str):
-    prof = _auth(token)
-    conn = get_conn()
-    
-    # Check safety: any event references this upload_id?
-    referencing_events = conn.execute(
-        "SELECT title FROM viva_events WHERE upload_id=?", (upload_id,)
-    ).fetchall()
-    
-    if referencing_events:
-        conn.close()
-        event_titles = ", ".join([r["title"] for r in referencing_events])
-        raise HTTPException(
-            400,
-            f"This content is used by event(s): {event_titles}. Delete or reassign those events first."
-        )
-        
-    # Fetch paths before deleting row
-    upload = conn.execute(
-        "SELECT * FROM uploads WHERE id=? AND professor_id=?", (upload_id, prof["id"])
-    ).fetchone()
-    
-    if not upload:
-        conn.close()
-        raise HTTPException(404, "Content not found")
-        
-    conn.execute("DELETE FROM uploads WHERE id=?", (upload_id,))
-    conn.commit()
-    conn.close()
-    
-    # Delete files from disk safely
-    import shutil
-    upload_path = upload["upload_path"]
-    if upload_path:
-        try:
-            if os.path.exists(upload_path):
-                os.remove(upload_path)
-            folder_path = os.path.dirname(upload_path)
-            if os.path.isdir(folder_path):
-                shutil.rmtree(folder_path)
-        except Exception as e:
-            log.error(f"Failed to delete upload file/folder: {e}")
-            
-    okf_bundle_path = upload["okf_bundle_path"]
-    if okf_bundle_path:
-        try:
-            if os.path.isdir(okf_bundle_path):
-                shutil.rmtree(okf_bundle_path)
-        except Exception as e:
-            log.error(f"Failed to delete OKF bundle: {e}")
-            
-    graph_path = upload["graph_path"]
-    if graph_path:
-        try:
-            if os.path.exists(graph_path):
-                os.remove(graph_path)
-            summary_path = graph_path.replace("knowledge-graph.json", "summary.txt")
-            if os.path.exists(summary_path):
-                os.remove(summary_path)
-            parent_graph = os.path.dirname(graph_path)
-            if os.path.isdir(parent_graph) and not os.listdir(parent_graph):
-                os.rmdir(parent_graph)
-        except Exception as e:
-            log.error(f"Failed to delete graph files: {e}")
-            
-    return {"ok": True}
+    _auth(token)
+    raise HTTPException(403, CONTENT_MANAGED)
 
 
-class RenameContentRequest(BaseModel):
-    display_name: str
-    
 @router.patch("/content/{upload_id}")
-async def rename_content(upload_id: str, req: RenameContentRequest, token: str):
-    prof = _auth(token)
-    display_name = req.display_name.strip()
-    if not display_name:
-        raise HTTPException(400, "Display name cannot be empty")
-        
-    conn = get_conn()
-    upload = conn.execute(
-        "SELECT id FROM uploads WHERE id=? AND professor_id=?", (upload_id, prof["id"])
-    ).fetchone()
-    if not upload:
-        conn.close()
-        raise HTTPException(404, "Content not found")
-        
-    conn.execute(
-        "UPDATE uploads SET display_name=? WHERE id=?", (display_name, upload_id)
-    )
-    conn.commit()
-    conn.close()
-    return {"ok": True, "display_name": display_name}
+async def rename_content(upload_id: str, token: str):
+    _auth(token)
+    raise HTTPException(403, CONTENT_MANAGED)
 
 
 @router.post("/auth")

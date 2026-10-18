@@ -1,7 +1,7 @@
 import { http } from './http'
 import type {
   ContentItem, CreateEventInput, CreateEventResponse, EventDetail, EventResults, EventSummary,
-  GenerationProgress, OrchestratorStatus, PipelineStatus, ProfessorLogin, RosterUploadResponse,
+  GenerationProgress, OrchestratorStatus, ProfessorLogin, RosterUploadResponse,
 } from '@/types/api'
 
 export const professorApi = {
@@ -9,22 +9,8 @@ export const professorApi = {
     http.post<ProfessorLogin>('/professor/login', { username, password }).then((r) => r.data),
   me: () => http.get<{ professor_id: string; username: string; display_name: string }>('/professor/me').then((r) => r.data),
 
-  // content
+  // content library (read-only; the admin uploads)
   listContent: () => http.get<ContentItem[]>('/professor/content').then((r) => r.data),
-  uploadContent: (file: File, token: string, onProgress?: (pct: number) => void) => {
-    const fd = new FormData()
-    fd.append('token', token)
-    fd.append('file', file)
-    return http.post<{ upload_id: string; filename: string }>('/professor/content/upload', fd, {
-      timeout: 0,
-      onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded / e.total) * 100)),
-    }).then((r) => r.data)
-  },
-  pipelineStatus: (upload_id: string) =>
-    http.get<PipelineStatus>(`/student/pipeline/status/${encodeURIComponent(upload_id)}`).then((r) => r.data),
-  renameContent: (upload_id: string, display_name: string) =>
-    http.patch(`/professor/content/${encodeURIComponent(upload_id)}`, { display_name }).then((r) => r.data),
-  deleteContent: (upload_id: string) => http.delete(`/professor/content/${encodeURIComponent(upload_id)}`).then((r) => r.data),
 
   // events
   listEvents: () => http.get<EventSummary[]>('/professor/events').then((r) => r.data),

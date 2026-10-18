@@ -133,6 +133,7 @@ export interface ContentItem {
   step: number
   percentage: number
   label: string
+  test_count?: number      // tests that use this content
 }
 
 export interface PipelineStatus {
@@ -148,6 +149,7 @@ export interface EventSummary {
   title: string
   upload_id: string
   content_name: string
+  upload_ids?: string[]
   event_date: string
   status: string
   max_students: number
@@ -180,7 +182,7 @@ export interface EventDetail {
 }
 
 export interface CreateEventInput {
-  upload_id: string
+  upload_ids: string[]
   title: string
   question_types: Record<QuestionType, number>
   marks_per_question: number
@@ -197,6 +199,7 @@ export interface CreateEventResponse {
   marks_per_question: number
   type_marks?: Record<QuestionType, number>
   total_marks: number
+  reused_from_earlier?: number
 }
 
 export type GenerationStage = 'pending' | 'reading' | 'generating' | 'checking' | 'saving' | 'done' | 'failed'
@@ -267,14 +270,28 @@ export interface OrchestratorStatus {
 
 // ── Admin ─────────────────────────────────────────────────
 export interface AdminLogin { token: string; admin_id: string; display_name: string }
-export interface AdminStats { teachers: number; students: number; tests: number; attempts: number }
+export interface AdminStats { teachers: number; students: number; tests: number; attempts: number; content?: number }
 export interface Teacher {
   id: string
   username: string
   display_name: string
   created_at: string
-  content_count: number
   test_count: number
 }
 export interface ManagedStudent { id: string; roll_number: string; name: string; created_at: string; tests_taken: number }
-export interface StudentImportResult { added: number; skipped: number; invalid_rows: number[]; invalid_count: number }
+export interface AdminTest {
+  event_id: string
+  title: string
+  event_date: string
+  created_at: string
+  teacher_name: string
+  teacher_username: string | null
+  content_name: string
+  num_questions: number
+  question_types: Record<QuestionType, number>
+  type_marks: Record<QuestionType, number>
+  total_marks: number
+  roster_count: number
+  completed: number
+  average_pct: number | null
+}

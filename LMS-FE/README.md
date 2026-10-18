@@ -17,9 +17,9 @@ The Pariksha AI viva & assessment portal rebuilt as a React single-page app. It 
 
 **Students** — sign in with roll number + name · *My tests* (to do / completed) · full-screen test with tab-switch monitoring · three question types: multiple choice (drag the option into the answer box, tap it, or press A–D), fill in the blank, and match the following (join each pair with a coloured line — tap one side then the other, or drag between the dots) · score and answers shown only after the last question · results with an answer donut and a question-by-question review · Ellie, the elephant guide.
 
-**Teachers** — content upload with live processing progress · create tests choosing how many of each question type **and the marks for each type** (live total) · roster CSV upload · results with a **class performance chart** (every student's score against the class average), status filters, per-student answer charts and Excel export · live monitor · profile photo · automatic sign-out after inactivity.
+**Teachers** — read-only content library (uploaded by the admin) · create tests by **ticking one or more content items** and choosing how many of each question type **and the marks for each type** (live total) · roster CSV upload · results with a **class performance chart** (every student's score against the class average), status filters, per-student answer charts and Excel export · live monitor · profile photo · automatic sign-out after inactivity.
 
-**Admins** — separate sign-in (Admin tab) · create teachers, reset their passwords, remove unused accounts · add students one by one or import a class-list CSV, search, remove students with no attempts. The first admin account comes from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `viva-webapp/.env` (see `.env.example`).
+**Admins** — separate sign-in (Admin tab) · **content library**: upload course material (PDF, DOCX, TXT, Markdown) with live processing progress, rename, delete unused items — teachers can't upload · view every teacher (tests and content per teacher), reset a teacher's password, remove unused accounts · view every student who has signed in, search, remove students with no attempts · **test results across all teachers**: average score by test chart, then any test's class chart, per-student answers and Excel export. Admins don't create accounts — students join themselves with roll number + name. The admin account comes from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `viva-webapp/.env` (see `.env.example`).
 
 > Teacher pages live under `/teacher`; old `/professor/...` links redirect. The backend API keeps its `/professor` paths.
 
@@ -73,7 +73,8 @@ src/
   features/auth/      sign-in
   features/student/   tests list, test-taking (AnswerBoard = drag-and-drop), results
   features/professor/ teacher pages: content, events, roster, results (+ class chart), live
-  features/admin/     admin console: teachers, students
+  features/admin/     admin console: teachers, students, test results
+  components/results/ shared results view (class chart, per-student table) for teachers and admins
   hooks/              notification socket, integrity guard, idle sign-out, generation progress
   services/           Axios instance + typed API clients
   store/              Redux slices (auth, results, notifications) with persistence
