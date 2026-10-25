@@ -13,3 +13,6 @@ networkx
 pydantic
 openpyxl
 python-dotenv
+
+psycopg[binary]>=3.2
+psycopg-pool>=3.2

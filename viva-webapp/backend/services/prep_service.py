@@ -167,7 +167,7 @@ async def _generate_chunk(chunk: str, n_cards: int, n_mcqs: int) -> tuple[list, 
 def _set_status(upload_id: str, **fields):
     fields["updated_at"] = _now()
     conn = get_conn()
-    conn.execute("INSERT OR IGNORE INTO prep_sets (upload_id) VALUES (?)", (upload_id,))
+    conn.execute("INSERT INTO prep_sets (upload_id) VALUES (?) ON CONFLICT (upload_id) DO NOTHING", (upload_id,))
     conn.execute(
         f"UPDATE prep_sets SET {', '.join(f'{k}=?' for k in fields)} WHERE upload_id=?",
         (*fields.values(), upload_id),

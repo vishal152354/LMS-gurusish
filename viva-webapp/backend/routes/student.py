@@ -61,7 +61,7 @@ async def student_join(req: JoinRequest):
     row = conn.execute("SELECT * FROM students WHERE id=?", (student_id,)).fetchone()
 
     on_roster = conn.execute("SELECT id FROM event_students WHERE roll_number=?", (roll,)).fetchone()
-    roster_uploaded = 1 if on_roster else 0
+    roster_uploaded = bool(on_roster)
 
     if row is None:
         # new student
@@ -133,7 +133,7 @@ async def upload_file(
     conn.execute(
         """INSERT INTO uploads
            (id,student_id,filename,upload_path,okf_bundle_path,graph_path,okf_ready,viva_completed,uploaded_at)
-           VALUES (?,?,?,?,?,?,0,0,?)""",
+           VALUES (?,?,?,?,?,?,FALSE,FALSE,?)""",
         (db_upload_id, student_id, file.filename, str(dest_path), "", "", _now()),
     )
     conn.execute("UPDATE students SET total_uploads=total_uploads+1 WHERE id=?", (student_id,))
@@ -148,7 +148,7 @@ async def upload_file(
         if result.get("ok"):
             conn2 = get_conn()
             conn2.execute(
-                "UPDATE uploads SET okf_bundle_path=?,graph_path=?,okf_ready=1 WHERE id=?",
+                "UPDATE uploads SET okf_bundle_path=?,graph_path=?,okf_ready=TRUE WHERE id=?",
                 (result["bundle_path"], result["graph_path"], db_upload_id),
             )
             conn2.commit()

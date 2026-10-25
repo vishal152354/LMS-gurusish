@@ -1,13 +1,173 @@
-import sqlite3, os, hashlib
+"""
+Database access. PostgreSQL when DATABASE_URL is set (postgresql://…), otherwise the SQLite file.
+
+The rest of the code is written once, SQLite-style: "?" placeholders, rows read by name or
+position, timestamps and JSON as strings. In PostgreSQL mode the connection wrapper below
+translates placeholders and loads values back in those same shapes, so every query runs on both.
+"""
+import sqlite3, os, hashlib, re
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 
 DB_PATH = os.path.expanduser("~/viva-webapp/data/viva.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+IS_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+SQL_DIR = Path(__file__).parent / "sql"
+
 
 def get_conn():
+    if IS_PG:
+        return PgConnection()
     conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
+
+
+def describe() -> str:
+    if IS_PG:
+        return "PostgreSQL " + re.sub(r"//[^@/]*@", "//", DATABASE_URL)   # never print the password
+    return f"SQLite {DB_PATH}"
+
+
+# ═══════════════════════════════════════════════════════════
+#  PostgreSQL mode
+# ═══════════════════════════════════════════════════════════
+
+_pool = None
+
+
+class Row:
+    """A result row readable like sqlite3.Row: row["name"], row[0], row.keys(), dict(row)."""
+    __slots__ = ("_values", "_index")
+
+    def __init__(self, values, index):
+        self._values = values
+        self._index = index
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self._values[self._index[key]]
+        return self._values[key]
+
+    def keys(self):
+        return list(self._index)
+
+    def get(self, key, default=None):
+        i = self._index.get(key)
+        return default if i is None else self._values[i]
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self):
+        return len(self._values)
+
+    def __repr__(self):
+        return f"Row({dict(zip(self._index, self._values))})"
+
+
+def _row_factory(cursor):
+    index = {c.name: i for i, c in enumerate(cursor.description or [])}
+    return lambda values: Row(values, index)
+
+
+@lru_cache(maxsize=1024)
+def _pg_sql(sql: str) -> str:
+    """'?' placeholders → '%s' (outside string literals); literal '%' → '%%'."""
+    out, in_str = [], False
+    for ch in sql:
+        if ch == "'":
+            in_str = not in_str
+            out.append(ch)
+        elif ch == "?" and not in_str:
+            out.append("%s")
+        elif ch == "%":
+            out.append("%%")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _configure(conn):
+    """Load values in the shapes the code expects from SQLite."""
+    from decimal import Decimal
+    from psycopg.adapt import Loader
+
+    class TextLoader(Loader):              # json/jsonb → JSON text (callers json.loads it)
+        def load(self, data):
+            return bytes(data).decode()
+
+    class TimestampLoader(Loader):         # timestamptz → naive UTC ISO string, as stored before
+        def load(self, data):
+            s = re.sub(r"[+-]\d\d(:\d\d)?$", "", bytes(data).decode()).replace(" ", "T", 1)
+            if "." in s:                       # PostgreSQL drops trailing zeros: .90681 → .906810
+                head, frac = s.split(".", 1)
+                s = f"{head}.{frac.ljust(6, '0')}"
+            return s
+
+    class NumericLoader(Loader):           # numeric → int when whole, else float
+        def load(self, data):
+            d = Decimal(bytes(data).decode())
+            return int(d) if d == d.to_integral_value() else float(d)
+
+    for t in ("json", "jsonb", "date"):
+        conn.adapters.register_loader(t, TextLoader)
+    for t in ("timestamptz", "timestamp"):
+        conn.adapters.register_loader(t, TimestampLoader)
+    conn.adapters.register_loader("numeric", NumericLoader)
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        from psycopg_pool import ConnectionPool
+        _pool = ConnectionPool(
+            DATABASE_URL, min_size=1, max_size=int(os.getenv("DB_POOL_SIZE", "20")), timeout=15,
+            kwargs={"autocommit": True, "options": "-c timezone=UTC"}, configure=_configure, open=True,
+        )
+    return _pool
+
+
+class PgConnection:
+    """Same surface the code uses on sqlite3 connections: execute(), cursor(), commit(), close().
+    Statements autocommit (each one is applied as it runs); commit() is kept for compatibility."""
+
+    def __init__(self):
+        self._pool = _get_pool()
+        self._conn = self._pool.getconn()
+
+    def execute(self, sql, params=()):
+        cur = self._conn.cursor(row_factory=_row_factory)
+        if params:
+            cur.execute(_pg_sql(sql), tuple(params))
+        else:
+            cur.execute(sql)
+        return cur
+
+    def executescript(self, script):
+        self._conn.execute(script)
+
+    def cursor(self):
+        return self
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        if self._conn is not None:
+            self._pool.putconn(self._conn)
+            self._conn = None
+
+    def __del__(self):                      # a forgotten close() still returns the connection
+        try:
+            self.close()
+        except Exception:
+            pass
 
 def _add_col(conn, table, col, defn):
     cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
@@ -18,6 +178,15 @@ def _hash(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
 
 def init_db():
+    if IS_PG:
+        conn = get_conn()
+        conn.executescript((SQL_DIR / "app.sql").read_text())
+        conn.executescript((SQL_DIR / "results.sql").read_text())
+        _seed(conn)
+        conn.close()
+        print(f"Database initialised: {describe()}")
+        return
+
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = get_conn()
     c = conn.cursor()
@@ -254,8 +423,21 @@ def init_db():
     _add_col(conn, "uploads",       "is_library",         "INTEGER DEFAULT 0")  # admin content library
     # Content teachers uploaded before the admin-managed library becomes library content
     conn.execute("UPDATE uploads SET is_library=1 WHERE professor_id IS NOT NULL AND student_id IS NULL AND COALESCE(is_library,0)=0")
+    conn.execute("""CREATE TABLE IF NOT EXISTS active_sessions (
+        session_id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at DATETIME)""")
 
     conn.commit()
+    _seed(conn)
+    conn.close()
+    print(f"Database initialised: {describe()}")
+
+
+def _seed(conn):
+    """Default teacher and admin accounts, and housekeeping (both databases)."""
+    # saved states of tests that finished or were abandoned more than two days ago
+    from datetime import timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=2)).isoformat()
+    conn.execute("DELETE FROM active_sessions WHERE updated_at < ?", (cutoff,))
 
     # ── default professor account ─────────────────────────────
     PROF_USER = os.getenv("PROFESSOR_USERNAME", "admin")
@@ -283,6 +465,3 @@ def init_db():
         # .env is the source of truth for the admin password — changing it there takes effect on restart
         conn.execute("UPDATE admins SET password_hash=? WHERE username=?", (_hash(ADMIN_PASS), ADMIN_USER))
     conn.commit()
-
-    conn.close()
-    print(f"Database initialised at {DB_PATH}")

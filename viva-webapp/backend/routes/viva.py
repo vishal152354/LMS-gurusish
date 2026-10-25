@@ -17,13 +17,46 @@ from ..database.db import get_conn
 from ..services.hermes_client import hermes_client
 from ..services.tts_service import synthesize
 from ..services import orchestrator as orch
-from ..services import question_gen
+from ..services import question_gen, results_sync
 
 router = APIRouter(prefix="/student/viva", tags=["viva"])
 
 SESSIONS_ROOT = Path(os.path.expanduser("~/.hermes/workspace/viva-sessions"))
 
+# In-progress tests. Kept in memory for speed and saved to the active_sessions table after
+# every change, so a backend restart doesn't lose a student's test.
 _sessions: dict = {}
+
+
+def _save_session(session_id: str) -> None:
+    state = _sessions.get(session_id)
+    if state is None:
+        return
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO active_sessions (session_id, state, updated_at) VALUES (?,?,?) "
+        "ON CONFLICT (session_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
+        (session_id, json.dumps(state, default=str), datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def _get_session(session_id: str):
+    """The test's state — from memory, or reloaded from the database after a restart."""
+    state = _sessions.get(session_id)
+    if state is not None:
+        return state
+    conn = get_conn()
+    row = conn.execute("SELECT state FROM active_sessions WHERE session_id=?", (session_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    state = json.loads(row["state"])
+    # JSON turns the integer question keys into strings
+    state["right_orders"] = {int(k): v for k, v in (state.get("right_orders") or {}).items()}
+    _sessions[session_id] = state
+    return state
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -241,7 +274,7 @@ async def start_viva(req: StartRequest):
         """INSERT INTO viva_sessions
            (id,student_id,upload_id,slot_id,event_id,start_time,questions_asked,nodes_covered,
             tab_switch_count,warning_count,flagged,completed)
-           VALUES (?,?,?,?,?,?,0,'[]',0,0,0,0)""",
+           VALUES (?,?,?,?,?,?,0,'[]',0,0,FALSE,FALSE)""",
         (session_id, req.student_id, upload_id,
          active_slot_id,
          slot["event_id"] if active_slot_id else req.event_id,
@@ -349,6 +382,7 @@ async def start_viva(req: StartRequest):
         "completed":            False,
         "last_question":        first_q,
     }
+    _save_session(session_id)
 
     return {
         "session_id":          session_id,
@@ -373,7 +407,7 @@ class AnswerRequest(BaseModel):
 
 @router.post("/answer/{session_id}")
 async def submit_answer(session_id: str, req: AnswerRequest):
-    state = _sessions.get(session_id)
+    state = _get_session(session_id)
     if not state:
         raise HTTPException(404, "Session not found or expired")
     if state["completed"]:
@@ -416,6 +450,7 @@ async def submit_answer(session_id: str, req: AnswerRequest):
     nxt = mcq[next_q_num - 1]
     state["last_question"] = nxt["question"]
     view = question_gen.public_view(nxt, state.get("right_orders", {}).get(next_q_num - 1))
+    _save_session(session_id)
     return {
         "accepted":            True,
         "viva_complete":       False,
@@ -461,7 +496,7 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
     marks_id = str(uuid.uuid4())
     conn = get_conn()
     conn.execute(
-        """INSERT OR REPLACE INTO marks
+        """INSERT INTO marks
            (id,student_id,upload_id,session_id,knowledge,understanding,confidence,
             application,contribution,total,grade,strong_areas,areas_to_improve,
             overall_comment,created_at)
@@ -470,10 +505,10 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
          0, 0, 0, 0, 0, obtained, grade,
          json.dumps(strong_areas), json.dumps(areas_to_improve), comment, now),
     )
-    conn.execute("UPDATE uploads SET viva_completed=1 WHERE id=?", (upload_id,))
+    conn.execute("UPDATE uploads SET viva_completed=TRUE WHERE id=?", (upload_id,))
     conn.execute(
         "UPDATE viva_sessions SET end_time=?,questions_asked=?,nodes_covered=?,"
-        "completed=1,session_status='completed',question_log=? WHERE id=?",
+        "completed=TRUE,session_status='completed',question_log=? WHERE id=?",
         (now, state["exchange_count"], json.dumps(state.get("visited", [])),
          json.dumps(state.get("question_log", [])), session_id),
     )
@@ -500,6 +535,7 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
         (eval_dir / "result.json").write_text(json.dumps(eval_result, indent=2))
 
     orch.complete_session(session_id)
+    results_sync.sync_attempt(session_id)   # reporting tables (PostgreSQL only)
 
     closing = (
         f"Test complete, {name}. You got {correct} of {total_q} fully right and "
@@ -526,6 +562,7 @@ async def _finalise_mcq(session_id: str, state: dict) -> dict:
         "question_log": state.get("question_log", []),
     }
     state["final_result"] = final
+    _save_session(session_id)
     return final
 
 def _phase_label(phase: str) -> str:
@@ -550,7 +587,7 @@ class CommandRequest(BaseModel):
 
 @router.post("/command/{session_id}")
 async def viva_command(session_id: str, req: CommandRequest):
-    state = _sessions.get(session_id)
+    state = _get_session(session_id)
     if not state:
         raise HTTPException(404, "Session not found")
 
@@ -634,7 +671,7 @@ class IntegrityEvent(BaseModel):
 
 @router.post("/integrity/{session_id}")
 async def log_integrity(session_id: str, ev: IntegrityEvent):
-    state = _sessions.get(session_id)
+    state = _get_session(session_id)
     conn = get_conn()
 
     conn.execute(
@@ -657,7 +694,7 @@ async def log_integrity(session_id: str, ev: IntegrityEvent):
     flagged = warning_count >= 3
 
     if flagged:
-        conn.execute("UPDATE viva_sessions SET flagged=1 WHERE id=?", (session_id,))
+        conn.execute("UPDATE viva_sessions SET flagged=TRUE WHERE id=?", (session_id,))
 
     conn.commit()
     conn.close()
@@ -669,14 +706,14 @@ async def log_integrity(session_id: str, ev: IntegrityEvent):
 
 @router.post("/end/{session_id}")
 async def end_viva(session_id: str):
-    state = _sessions.get(session_id)
+    state = _get_session(session_id)
     if not state:
         raise HTTPException(404, "Session not found")
     return await _finalise_viva(session_id, state, "")
 
 @router.get("/end/{session_id}")
 async def get_end_viva(session_id: str):
-    state = _sessions.get(session_id)
+    state = _get_session(session_id)
     if not state:
         raise HTTPException(404, "Session not found")
     if not state.get("completed"):
@@ -728,7 +765,7 @@ async def _finalise_viva(session_id: str, state: dict, prefix_feedback: str) -> 
     marks_id = str(uuid.uuid4())
     conn = get_conn()
     conn.execute(
-        """INSERT OR REPLACE INTO marks
+        """INSERT INTO marks
            (id,student_id,upload_id,session_id,knowledge,understanding,confidence,
             application,contribution,total,grade,strong_areas,areas_to_improve,
             overall_comment,created_at)
@@ -746,10 +783,10 @@ async def _finalise_viva(session_id: str, state: dict, prefix_feedback: str) -> 
             comment, now,
         )
     )
-    conn.execute("UPDATE uploads SET viva_completed=1 WHERE id=?", (upload_id,))
+    conn.execute("UPDATE uploads SET viva_completed=TRUE WHERE id=?", (upload_id,))
     conn.execute(
         "UPDATE viva_sessions SET end_time=?,questions_asked=?,nodes_covered=?,"
-        "completed=1,session_status='completed' WHERE id=?",
+        "completed=TRUE,session_status='completed' WHERE id=?",
         (now, state["exchange_count"], json.dumps(state.get("visited", [])), session_id)
     )
     slot_row = conn.execute("SELECT slot_id FROM viva_sessions WHERE id=?", (session_id,)).fetchone()
@@ -841,6 +878,7 @@ async def _finalise_viva(session_id: str, state: dict, prefix_feedback: str) -> 
         "question_log":  state.get("question_log", []),
     }
     state["final_result"] = final
+    _save_session(session_id)
     return final
 
 

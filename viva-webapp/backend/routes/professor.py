@@ -287,7 +287,7 @@ async def list_events(token: str):
     prof = _auth(token)
     conn = get_conn()
     events = conn.execute(
-        "SELECT * FROM viva_events WHERE professor_id=? ORDER BY event_date DESC, start_time DESC",
+        "SELECT * FROM viva_events WHERE professor_id=? ORDER BY event_date DESC, start_time DESC, created_at DESC",
         (prof["id"],)
     ).fetchall()
     out = []
@@ -994,7 +994,7 @@ async def dashboard(pin: str):
         for u in uploads:
             mr = conn.execute("SELECT * FROM marks WHERE upload_id=?", (u["id"],)).fetchone()
             sr = conn.execute(
-                "SELECT * FROM viva_sessions WHERE upload_id=? AND completed=1 ORDER BY end_time DESC LIMIT 1",
+                "SELECT * FROM viva_sessions WHERE upload_id=? AND completed=TRUE ORDER BY end_time DESC LIMIT 1",
                 (u["id"],)
             ).fetchone()
             upload_list.append({

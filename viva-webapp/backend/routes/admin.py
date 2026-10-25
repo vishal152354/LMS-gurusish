@@ -56,7 +56,7 @@ async def admin_stats(token: str):
         "teachers": conn.execute("SELECT COUNT(*) FROM professors").fetchone()[0],
         "students": conn.execute("SELECT COUNT(*) FROM students").fetchone()[0],
         "tests":    conn.execute("SELECT COUNT(*) FROM viva_events").fetchone()[0],
-        "content":  conn.execute("SELECT COUNT(*) FROM uploads WHERE is_library=1").fetchone()[0],
+        "content":  conn.execute("SELECT COUNT(*) FROM uploads WHERE is_library=TRUE").fetchone()[0],
         "attempts": conn.execute("SELECT COUNT(*) FROM viva_sessions WHERE session_status='completed'").fetchone()[0],
     }
     conn.close()

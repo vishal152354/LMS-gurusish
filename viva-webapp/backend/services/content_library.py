@@ -40,7 +40,7 @@ def store_upload(owner_id: str, owner_name: str, filename: str, raw: bytes, back
         """INSERT INTO uploads
            (id, student_id, professor_id, filename, upload_path,
             okf_bundle_path, graph_path, okf_ready, viva_completed, uploaded_at, display_name, is_library)
-           VALUES (?,NULL,?,?,?,?,?,0,0,?,?,1)""",
+           VALUES (?,NULL,?,?,?,?,?,FALSE,FALSE,?,?,TRUE)""",
         (upload_id, owner_id, filename, str(dest_path), "", "", datetime.utcnow().isoformat(), filename),
     )
     conn.commit()
@@ -50,7 +50,7 @@ def store_upload(owner_id: str, owner_name: str, filename: str, raw: bytes, back
         result = await run_pipeline(owner_id, owner_name, filename, str(dest_path), ts, hermes_client, upload_id)
         if result.get("ok"):
             c2 = get_conn()
-            c2.execute("UPDATE uploads SET okf_bundle_path=?,graph_path=?,okf_ready=1 WHERE id=?",
+            c2.execute("UPDATE uploads SET okf_bundle_path=?,graph_path=?,okf_ready=TRUE WHERE id=?",
                        (result["bundle_path"], result["graph_path"], upload_id))
             c2.commit()
             c2.close()
@@ -61,7 +61,7 @@ def store_upload(owner_id: str, owner_name: str, filename: str, raw: bytes, back
 
 def list_library() -> list:
     conn = get_conn()
-    rows = conn.execute("SELECT * FROM uploads WHERE is_library=1 ORDER BY uploaded_at DESC").fetchall()
+    rows = conn.execute("SELECT * FROM uploads WHERE is_library=TRUE ORDER BY uploaded_at DESC").fetchall()
     usage = {}
     for e in conn.execute("SELECT upload_id, upload_ids FROM viva_events").fetchall():
         for uid in event_upload_ids(e):
@@ -88,7 +88,7 @@ def library_uploads(conn, upload_ids: list) -> list:
     """The requested library items, in the order given; 404 if any is missing."""
     out = []
     for uid in upload_ids:
-        u = conn.execute("SELECT * FROM uploads WHERE id=? AND is_library=1", (uid,)).fetchone()
+        u = conn.execute("SELECT * FROM uploads WHERE id=? AND is_library=TRUE", (uid,)).fetchone()
         if not u:
             raise HTTPException(404, "One of the chosen content items no longer exists.")
         out.append(u)
@@ -120,7 +120,7 @@ def rename_upload(upload_id: str, display_name: str) -> dict:
     if not display_name:
         raise HTTPException(400, "Display name cannot be empty")
     conn = get_conn()
-    cur = conn.execute("UPDATE uploads SET display_name=? WHERE id=? AND is_library=1", (display_name, upload_id))
+    cur = conn.execute("UPDATE uploads SET display_name=? WHERE id=? AND is_library=TRUE", (display_name, upload_id))
     conn.commit()
     conn.close()
     if not cur.rowcount:
@@ -135,7 +135,7 @@ def delete_upload(upload_id: str) -> dict:
     if using:
         conn.close()
         raise HTTPException(400, f"This content is used by test(s): {', '.join(using)}. Those tests must be deleted first.")
-    upload = conn.execute("SELECT * FROM uploads WHERE id=? AND is_library=1", (upload_id,)).fetchone()
+    upload = conn.execute("SELECT * FROM uploads WHERE id=? AND is_library=TRUE", (upload_id,)).fetchone()
     if not upload:
         conn.close()
         raise HTTPException(404, "Content not found")

@@ -33,18 +33,29 @@ FastAPI Backend (port 7860)
      │
      ├── OKF Pipeline (extracts concepts from uploaded docs)
      ├── Knowledge Graph Builder
-     ├── SQLite Database (~/viva-webapp/data/viva.db)
+     ├── PostgreSQL (DATABASE_URL) — or the SQLite file ~/viva-webapp/data/viva.db when unset
      └── Hermes Agent API (port 8642)
               │
               └── Ollama Cloud (gemma4:31b)
 ```
+
+## Database
+
+Set `DATABASE_URL=postgresql://…` in `.env` to run on PostgreSQL; the schema (`backend/database/sql/app.sql` and the
+reporting tables in `results.sql`) is created on start. Without it the app uses the SQLite file.
+
+- **Move existing SQLite data:** `DATABASE_URL=… ./venv/bin/python -m backend.database.migrate_sqlite_to_pg`
+  (reads SQLite read-only, copies every table, checks row counts, fills the reporting tables).
+- **In-progress tests** are saved in `active_sessions` after every answer, so a backend restart doesn't lose them.
+- **Reporting:** each finished attempt is written to `pariksha.test_results` / `test_result_answers`;
+  `pariksha.test_summary` gives class averages per test.
 
 ## File Locations
 
 | Item | Path |
 |------|------|
 | Student OKF bundles | `~/.hermes/workspace/viva-sessions/` |
-| Database | `~/viva-webapp/data/viva.db` |
+| Database | PostgreSQL via `DATABASE_URL` (schema: `backend/database/sql/`); SQLite fallback `~/viva-webapp/data/viva.db` |
 | Uploaded files | `~/viva-webapp/data/uploads/` |
 | Viva Agent skill | `~/.hermes/skills/viva-agent/SKILL.md` |
 | Backend | `~/viva-webapp/backend/` |
