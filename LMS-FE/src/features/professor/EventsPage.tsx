@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import moment from 'moment'
 import { Link, useSearchParams } from 'react-router'
-import { BarChart3, CalendarDays, Check, ListChecks, Minus, PenLine, Plus, Shuffle, Sparkles, Trash2, Users } from 'lucide-react'
+import { BarChart3, CalendarDays, Check, ClipboardCheck, GraduationCap, ListChecks, Minus, PenLine, Plus, Shuffle, Sparkles, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/PageHeader'
 import {
@@ -24,12 +24,13 @@ import { useTour } from '@/features/guide/guideContext'
 import { cn, uuid } from '@/lib/utils'
 import { apiError } from '@/services/http'
 import { professorApi } from '@/services/professorApi'
-import type { ContentItem, EventSummary, QuestionType } from '@/types/api'
+import type { ContentItem, EventSummary, QuestionType, TestMode } from '@/types/api'
 
 const count = z.coerce.number().int().min(0).max(30)
 const mark = z.coerce.number().int('Whole numbers only').min(1, 'At least 1 mark').max(100, 'At most 100 marks')
 const schema = z.object({
   title: z.string().trim().min(3, 'Give the test a title').max(120),
+  mode: z.enum(['unguided', 'guided']),
   upload_ids: z.array(z.string()).min(1, 'Tick at least one content item').max(10, 'Choose at most 10 content items'),
   types: z.object({ mcq: count, fill_blank: count, match: count })
     .refine((t) => t.mcq + t.fill_blank + t.match >= 1, 'Choose at least one question')
@@ -42,6 +43,10 @@ const TYPE_CARDS: { key: QuestionType; label: string; hint: string; icon: typeof
   { key: 'mcq', label: 'Multiple choice', hint: 'Pick the right option', icon: ListChecks },
   { key: 'fill_blank', label: 'Fill in the blanks', hint: 'Type the missing term', icon: PenLine },
   { key: 'match', label: 'Match the following', hint: 'Pair 4 items correctly', icon: Shuffle },
+]
+const MODES: { key: TestMode; label: string; hint: string; icon: typeof ListChecks }[] = [
+  { key: 'unguided', label: 'Unguided', hint: 'Exam. Answers and score only at the end.', icon: ClipboardCheck },
+  { key: 'guided', label: 'Guided', hint: 'Practice. Flashcards first, then the answer after every question.', icon: GraduationCap },
 ]
 const SHORT: Record<QuestionType, string> = { mcq: 'MCQ', fill_blank: 'fill-in', match: 'match' }
 type FormValues = z.infer<typeof schema>
@@ -98,6 +103,9 @@ export default function EventsPage() {
                     <Button size="icon" variant="ghost" className="hover:text-destructive-text" onClick={() => setToDelete(ev)} aria-label={`Delete ${ev.title}`}><Trash2 /></Button>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={ev.mode === 'guided' ? 'accent' : 'default'}>
+                      {ev.mode === 'guided' ? <><GraduationCap className="size-3" />Guided</> : <><ClipboardCheck className="size-3" />Unguided</>}
+                    </Badge>
                     <Badge><CalendarDays className="size-3" />{moment(ev.event_date).format('D MMM YYYY')}</Badge>
                     <Badge variant={ev.roster_count ? 'accent' : 'warning'}><Users className="size-3" />{ev.roster_count} in roster</Badge>
                     <Badge variant={ev.completed ? 'success' : 'default'}><Check className="size-3" />{ev.completed} completed</Badge>
@@ -134,7 +142,7 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
   const form = useForm<z.input<typeof schema>, unknown, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      title: '', upload_ids: [], types: { mcq: 5, fill_blank: 3, match: 2 }, marks: { mcq: 1, fill_blank: 1, match: 4 }, event_date: new Date(),
+      title: '', mode: 'unguided', upload_ids: [], types: { mcq: 5, fill_blank: 3, match: 2 }, marks: { mcq: 1, fill_blank: 1, match: 4 }, event_date: new Date(),
     },
   })
   // "Use in a test" on the Content page links here with ?content=<id>
@@ -158,7 +166,7 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
     setProgressId(pid); setVisible(true)
     try {
       const r = await professorApi.createEvent({
-        upload_ids: v.upload_ids, title: v.title, question_types: v.types,
+        upload_ids: v.upload_ids, title: v.title, mode: v.mode, question_types: v.types,
         type_marks: v.marks, marks_per_question: v.marks.mcq, event_date: moment(v.event_date).format('YYYY-MM-DD'), progress_id: pid,
       })
       progress.finish()
@@ -168,7 +176,9 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
           description: `The AI could only write ${short.map((k) => `${r.question_types[k]} of ${r.requested[k]} ${SHORT[k]}`).join(', ')} from this content.`,
         })
       } else {
-        toast.success('Test created', { description: `${r.num_questions} questions, ${r.total_marks} marks. Add a roster to assign students.` })
+        toast.success(`${v.mode === 'guided' ? 'Guided' : 'Unguided'} test created`, {
+          description: `${r.num_questions} questions, ${r.total_marks} marks.${v.mode === 'guided' ? ' Flashcards are being prepared in the background.' : ''} Add a roster to assign students.`,
+        })
       }
       if (r.reused_from_earlier) {
         toast.info(`${r.reused_from_earlier} question${r.reused_from_earlier === 1 ? '' : 's'} overlap earlier tests on this content`, {
@@ -194,6 +204,31 @@ function CreateEventCard({ content, onCreated }: { content: ContentItem[]; onCre
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g. Unit 2 — Ohm’s law" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="mode" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Test mode</FormLabel>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Test mode">
+                  {MODES.map(({ key, label, hint, icon: Icon }) => {
+                    const on = field.value === key
+                    return (
+                      <button key={key} type="button" role="radio" aria-checked={on} onClick={() => field.onChange(key)}
+                        className={cn('flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors',
+                          on ? 'border-accent/60 bg-accent-soft ring-1 ring-accent/40' : 'border-border bg-muted hover:border-border-strong')}>
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                          <span className={cn('flex size-7 items-center justify-center rounded-md', on ? 'bg-accent text-accent-foreground' : 'bg-card-strong text-muted-foreground')}>
+                            <Icon className="size-4" />
+                          </span>
+                          {label}
+                          {on && <Check className="ml-auto size-4 text-accent" />}
+                        </span>
+                        <span className="text-xs leading-snug text-muted-foreground">{hint}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <FormMessage />
+              </FormItem>
             )} />
             <FormField control={form.control} name="upload_ids" render={({ field }) => {
               const picked = new Set(field.value)

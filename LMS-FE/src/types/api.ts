@@ -7,9 +7,28 @@ export interface JoinResponse {
   is_returning: boolean
 }
 
+/** unguided: answers only at the end (exam). guided: flashcards first, answer after every question. */
+export type TestMode = 'guided' | 'unguided'
+
+/** A study card shown before a guided test. */
+export interface TestFlashcard {
+  id: string
+  topic: string
+  question: string
+  answer: string
+  tip: string
+  source: string
+}
+
+export interface FlashcardDeck {
+  status: 'ready' | 'generating' | 'failed'
+  cards: TestFlashcard[]
+}
+
 export interface StudentTest {
   event_id: string
   title: string
+  mode?: TestMode
   upload_id: string
   filename: string
   ready: boolean
@@ -66,6 +85,7 @@ export interface StartTestResponse {
   total_questions: number
   marks_per_question: number
   total_marks: number
+  mode?: TestMode
   current_node: string
 }
 
@@ -86,6 +106,7 @@ export interface FinalResult {
   filename: string
   upload_id: string
   question_log: QuestionLogEntry[]
+  review?: QuestionLogEntry     // guided tests: the last answer, marked
 }
 
 /** Before the last question: just the next question — no correctness, no score. */
@@ -96,6 +117,7 @@ export interface AnswerNext {
   question_number: number
   total_questions: number
   answered: number
+  review?: QuestionLogEntry     // guided tests: the answer just given, marked
 }
 
 export type AnswerResponse = AnswerNext | FinalResult
@@ -145,6 +167,7 @@ export interface PipelineStatus {
 }
 
 export interface EventSummary {
+  mode?: TestMode
   event_id: string
   title: string
   upload_id: string
@@ -183,6 +206,7 @@ export interface EventDetail {
 
 export interface CreateEventInput {
   upload_ids: string[]
+  mode: TestMode
   title: string
   question_types: Record<QuestionType, number>
   marks_per_question: number
@@ -280,6 +304,7 @@ export interface Teacher {
 }
 export interface ManagedStudent { id: string; roll_number: string; name: string; created_at: string; tests_taken: number }
 export interface AdminTest {
+  mode?: TestMode
   event_id: string
   title: string
   event_date: string

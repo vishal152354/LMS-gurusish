@@ -203,7 +203,7 @@ def _event(event_id: str):
 
 @router.get("/tests")
 async def list_tests(token: str):
-    from .professor import _event_marks, _types_of
+    from .professor import _event_marks, _types_of, mode_of
     _auth(token)
     conn = get_conn()
     events = conn.execute(
@@ -225,6 +225,7 @@ async def list_tests(token: str):
             "content_name": content_library.content_names(conn, e),
             "num_questions": e["num_questions"] or 0, "question_types": _types_of(e),
             "type_marks": type_marks, "total_marks": total_marks,
+            "mode": mode_of(e),
             "roster_count": conn.execute("SELECT COUNT(*) FROM event_students WHERE event_id=?", (e["id"],)).fetchone()[0],
             "completed": len(scores),
             "average_pct": avg,

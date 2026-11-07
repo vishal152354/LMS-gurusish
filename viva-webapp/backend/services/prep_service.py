@@ -17,6 +17,7 @@ CHUNK_CHARS      = 3000   # report text per LLM call
 FLASHCARD_TARGET = 20
 MCQ_TARGET       = 15
 MAX_CHUNKS       = 8
+PARALLEL_CHUNKS  = 4      # LLM calls in flight at once
 
 _running: set[str] = set()   # upload_ids with a generation task in this process
 
@@ -211,15 +212,24 @@ async def _run(upload_id: str, upload_row: dict):
         n_cards = max(2, min(6, -(-FLASHCARD_TARGET // len(chunks))))
         n_mcqs  = max(2, min(5, -(-MCQ_TARGET // len(chunks))))
 
+        # Chunks are written in parallel (a few at a time), then merged in document order
+        gate, done = asyncio.Semaphore(PARALLEL_CHUNKS), 0
+
+        async def one(chunk):
+            nonlocal done
+            async with gate:
+                out = await _generate_chunk(chunk, n_cards, n_mcqs)
+            done += 1
+            _set_status(upload_id, done_chunks=done)
+            return out
+
         cards, mcqs, seen = [], [], set()
-        for i, chunk in enumerate(chunks):
-            c, m = await _generate_chunk(chunk, n_cards, n_mcqs)
+        for c, m in await asyncio.gather(*(one(ch) for ch in chunks)):
             for item, bucket in [(x, cards) for x in c] + [(x, mcqs) for x in m]:
                 key = re.sub(r"\W+", "", item["question"].lower())
                 if key not in seen:
                     seen.add(key)
                     bucket.append(item)
-            _set_status(upload_id, done_chunks=i + 1)
 
         if not cards and not mcqs:
             _set_status(upload_id, status="failed",

@@ -1,5 +1,5 @@
 import { http } from './http'
-import type { AnswerInput, AnswerResponse, JoinResponse, StartTestResponse, StoredResult, StudentTest } from '@/types/api'
+import type { AnswerInput, AnswerResponse, FlashcardDeck, JoinResponse, StartTestResponse, StoredResult, StudentTest } from '@/types/api'
 
 export const studentApi = {
   join: (roll_number: string, name: string) =>
@@ -13,6 +13,9 @@ export const studentApi = {
 
   answer: (session_id: string, input: AnswerInput) =>
     http.post<AnswerResponse>(`/student/viva/answer/${session_id}`, input).then((r) => r.data),
+
+  flashcards: (event_id: string, student_id: string) =>
+    http.get<FlashcardDeck>(`/student/viva/flashcards/${encodeURIComponent(event_id)}`, { params: { student_id, t: Date.now() } }).then((r) => r.data),
 
   logIntegrity: (session_id: string, event_type: string) =>
     http.post<{ warning_count: number; flagged: boolean }>(`/student/viva/integrity/${session_id}`, {

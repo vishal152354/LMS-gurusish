@@ -64,8 +64,10 @@ CREATE TABLE IF NOT EXISTS viva_events (                -- a test
     type_marks         jsonb,                           -- marks per question of each type
     total_marks        numeric(7,2),
     questions_json     jsonb,                           -- the generated paper
+    mode               text NOT NULL DEFAULT 'unguided', -- 'guided': flashcards + answer after each question
     created_at         timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE viva_events ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'unguided';
 CREATE INDEX IF NOT EXISTS viva_events_professor_idx ON viva_events (professor_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS event_students (             -- roster

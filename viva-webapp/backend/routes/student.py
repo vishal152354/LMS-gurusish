@@ -359,7 +359,7 @@ async def my_tests(roll_number: str):
     conn = get_conn()
     rows = conn.execute(
         """SELECT e.id AS event_id, e.title, e.upload_id, e.status, e.created_at,
-                  e.num_questions, e.marks_per_question, e.total_marks, e.upload_ids
+                  e.num_questions, e.marks_per_question, e.total_marks, e.upload_ids, e.mode
            FROM event_students es
            JOIN viva_events e ON e.id = es.event_id
            WHERE es.roll_number = ?
@@ -390,6 +390,7 @@ async def my_tests(roll_number: str):
             "ready":         bool(upload["okf_ready"]) if upload else False,
             "num_questions": n_q,
             "max_marks":     _max_marks(e),
+            "mode":          e["mode"] if e["mode"] in ("guided", "unguided") else "unguided",
             "attempted":     mark is not None,
             "score":         mark["total"] if mark else None,
             "grade":         mark["grade"] if mark else None,

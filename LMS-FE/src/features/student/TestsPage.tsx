@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { CheckCircle2, Clock, FileText, Maximize, RefreshCw, ShieldAlert, Trophy } from 'lucide-react'
+import { BookOpen, CheckCircle2, Clock, FileText, GraduationCap, Maximize, RefreshCw, ShieldAlert, Trophy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -96,6 +96,9 @@ export default function TestsPage() {
           </DialogHeader>
           <ul className="flex flex-col gap-3 text-sm">
             <li className="flex gap-3"><Clock className="mt-0.5 size-4 shrink-0 text-accent" /><span>You get <strong>one attempt</strong>. Once you start, finish it in one sitting.</span></li>
+            {confirm?.mode === 'guided' && (
+              <li className="flex gap-3"><BookOpen className="mt-0.5 size-4 shrink-0 text-accent" /><span><strong>Guided test:</strong> study flashcards first, and see the right answer after every question.</span></li>
+            )}
             <li className="flex gap-3"><Maximize className="mt-0.5 size-4 shrink-0 text-accent" /><span>The test runs full-screen.</span></li>
             <li className="flex gap-3"><ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" /><span>Switching tabs or windows is logged; three switches flag the attempt for review.</span></li>
           </ul>
@@ -133,6 +136,7 @@ function TestCard({ test, onStart }: { test: StudentTest; onStart?: () => void }
         <div className="flex gap-5 text-sm text-muted-foreground tabular">
           <span>{test.num_questions} questions</span>
           <span>{test.max_marks} marks</span>
+          {test.mode === 'guided' && <span className="flex items-center gap-1 font-semibold text-accent"><GraduationCap className="size-4" />Guided</span>}
         </div>
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4">
           {test.attempted ? (

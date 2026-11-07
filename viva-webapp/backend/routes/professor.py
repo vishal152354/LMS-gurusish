@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from ..database.db import get_conn
 from ..services.hermes_client import hermes_client
-from ..services import question_gen, content_library
+from ..services import question_gen, content_library, prep_service
 
 router = APIRouter(prefix="/professor", tags=["professor"])
 
@@ -131,6 +131,9 @@ class CreateEventRequest(BaseModel):
     start_time:         Optional[str] = None
     end_time:           Optional[str] = None
     max_students:       int = 50
+    # "unguided": answers only at the end (exam). "guided": flashcards to study first,
+    # and the right answer + explanation shown after every question (practice).
+    mode:               str = "unguided"
 
 
 @router.post("/events")
@@ -144,6 +147,9 @@ async def create_event(token: str, req: CreateEventRequest):
     if not 1 <= sum(counts.values()) <= 50:
         raise HTTPException(400, "Choose between 1 and 50 questions in total.")
     marks_per_question = max(1, min(100, req.marks_per_question))
+    mode = (req.mode or "unguided").strip().lower()
+    if mode not in MODES:
+        raise HTTPException(400, "Mode must be guided or unguided.")
     type_marks = {t: max(1, min(100, int((req.type_marks or {}).get(t) or marks_per_question)))
                   for t in question_gen.TYPES}
     pid = req.progress_id
@@ -227,15 +233,19 @@ async def create_event(token: str, req: CreateEventRequest):
     conn.execute(
         """INSERT INTO viva_events
            (id,professor_id,upload_id,title,event_date,start_time,end_time,status,max_students,
-            num_questions,marks_per_question,questions_json,question_types,type_marks,total_marks,upload_ids,created_at)
-           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,?,?,?)""",
+            num_questions,marks_per_question,questions_json,question_types,type_marks,total_marks,upload_ids,mode,created_at)
+           VALUES (?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,?,?,?,?)""",
         (event_id, prof["id"], upload_ids[0], req.title,
          req.event_date or now[:10], req.start_time or "", req.end_time or "", max_students,
          len(questions), marks_per_question, json.dumps(questions), json.dumps(made),
-         json.dumps(type_marks), total_marks, json.dumps(upload_ids), now),
+         json.dumps(type_marks), total_marks, json.dumps(upload_ids), mode, now),
     )
     conn.commit()
     conn.close()
+    if mode == "guided":
+        # Flashcards for the study step are built in the background, once per content item
+        for u in uploads:
+            prep_service.ensure_generation(u["id"], u)
     _set_event_progress(pid, "done", generated=len(questions))
     return {
         "event_id":           event_id,
@@ -245,6 +255,7 @@ async def create_event(token: str, req: CreateEventRequest):
         "marks_per_question": marks_per_question,
         "type_marks":         type_marks,
         "total_marks":        total_marks,
+        "mode":               mode,
         # questions that overlap an earlier test on this content (only used when no fresh ones were left)
         "reused_from_earlier": gen_stats.get("reused_from_earlier", 0),
     }
@@ -269,6 +280,14 @@ def _event_marks(e) -> tuple[dict, float]:
     if total == int(total):
         total = int(total)
     return tm, total
+
+
+MODES = ("unguided", "guided")
+
+
+def mode_of(e) -> str:
+    m = e["mode"] if "mode" in e.keys() else None
+    return m if m in MODES else "unguided"
 
 
 def _types_of(e) -> dict:
@@ -316,6 +335,7 @@ async def list_events(token: str):
             "marks_per_question": e["marks_per_question"] if "marks_per_question" in e.keys() and e["marks_per_question"] else 1,
             "type_marks":   _event_marks(e)[0],
             "total_marks":  _event_marks(e)[1],
+            "mode":         mode_of(e),
             "roster_count": roster_count,
             "completed":    done,
             "created_at":   e["created_at"],

@@ -132,7 +132,7 @@ export default function ResultsListPage() {
                 <TableRow key={t.event_id} className="group">
                   <TableCell>
                     <Link to={t.event_id} className="font-semibold text-accent hover:underline underline-offset-4">{t.title}</Link>
-                    <div className="max-w-64 truncate text-xs text-muted-foreground">{t.content_name} · {t.num_questions} questions</div>
+                    <div className="max-w-64 truncate text-xs text-muted-foreground">{t.content_name} · {t.num_questions} questions · {t.mode === 'guided' ? 'Guided' : 'Unguided'}</div>
                   </TableCell>
                   <TableCell>{t.teacher_name}</TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">{moment(t.event_date).format('D MMM YYYY')}</TableCell>

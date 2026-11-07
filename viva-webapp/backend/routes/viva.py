@@ -17,7 +17,7 @@ from ..database.db import get_conn
 from ..services.hermes_client import hermes_client
 from ..services.tts_service import synthesize
 from ..services import orchestrator as orch
-from ..services import question_gen, results_sync
+from ..services import question_gen, results_sync, prep_service, content_library
 
 router = APIRouter(prefix="/student/viva", tags=["viva"])
 
@@ -310,14 +310,17 @@ async def start_viva(req: StartRequest):
     # Fall back to the upload-level pre-gen, then on-demand generation.
     marks_per_question = 1
     mcq_questions = None
+    mode = "unguided"
     if req.event_id:
         econn = get_conn()
         ev = econn.execute(
-            "SELECT questions_json, marks_per_question FROM viva_events WHERE id=?",
+            "SELECT questions_json, marks_per_question, mode FROM viva_events WHERE id=?",
             (req.event_id,),
         ).fetchone()
         econn.close()
         if ev:
+            if ev["mode"] == "guided":
+                mode = "guided"
             if ev["marks_per_question"]:
                 marks_per_question = int(ev["marks_per_question"])
             if ev["questions_json"]:
@@ -341,7 +344,8 @@ async def start_viva(req: StartRequest):
     total_marks = question_gen.paper_total(mcq_questions, marks_per_question)
     opening_line = (
         f"Test — {total_q} questions, {total_marks} marks in total. "
-        f"Answers and your score are shown after the last question."
+        + ("You'll see the right answer after each question." if mode == "guided"
+           else "Answers and your score are shown after the last question.")
     )
     # Each student sees the match-the-following right column in its own order
     right_orders = {}
@@ -358,6 +362,7 @@ async def start_viva(req: StartRequest):
     _sessions[session_id] = {
         "student_id":    req.student_id,
         "upload_id":     upload_id,
+        "mode":          mode,
         "student_name":  name,
         "filename":      filename,
         "graph":         graph,
@@ -394,6 +399,7 @@ async def start_viva(req: StartRequest):
         "total_questions":     total_q,
         "marks_per_question":  marks_per_question,
         "total_marks":         total_marks,
+        "mode":                mode,
         "current_node":        f"Question 1 of {total_q}",
     }
 
@@ -422,7 +428,8 @@ async def submit_answer(session_id: str, req: AnswerRequest):
     mpq = state.get("marks_per_question", 1)
     order = state.get("right_orders", {}).get(current_q - 1)
 
-    # Mark silently: correctness is not revealed until the whole test is submitted
+    # Unguided: marked silently, nothing revealed until the whole test is submitted.
+    # Guided: the marked answer comes straight back so the student learns as they go.
     entry = question_gen.mark(current, text=req.answer_text, match=req.match, right_order=order,
                               mpq=mpq, letters=_LETTERS, parse_selection=_parse_selection)
     state["exchange_count"] += 1
@@ -442,8 +449,12 @@ async def submit_answer(session_id: str, req: AnswerRequest):
     state["score_so_far"] = round(sum(q["marks_awarded"] for q in state["question_log"]), 2)
     orch.update_progress(session_id, current_q, state["score_so_far"])
 
+    guided = state.get("mode") == "guided"
+    review = state["question_log"][-1] if guided else None
+
     if current_q >= state["total_questions"]:
-        return await _finalise_mcq(session_id, state)
+        final = await _finalise_mcq(session_id, state)
+        return {**final, "review": review} if guided else final
 
     next_q_num = current_q + 1
     state["question_number"] = next_q_num
@@ -461,7 +472,47 @@ async def submit_answer(session_id: str, req: AnswerRequest):
         "total_questions":     state["total_questions"],
         "answered":            current_q,
         "current_node":        f"Question {next_q_num} of {state['total_questions']}",
+        **({"review": review} if guided else {}),
     }
+
+
+# ──────────────────────────────────────────────────────────────
+# FLASHCARDS  (guided tests: a study deck before the test starts)
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/flashcards/{event_id}")
+async def test_flashcards(event_id: str, student_id: str):
+    """Flashcards for a guided test, built from its content items (generated in the background)."""
+    conn = get_conn()
+    student = conn.execute("SELECT roll_number FROM students WHERE id=?", (student_id,)).fetchone()
+    e = conn.execute("SELECT * FROM viva_events WHERE id=?", (event_id,)).fetchone()
+    if not student or not e:
+        conn.close()
+        raise HTTPException(404, "Test not found")
+    if not conn.execute("SELECT 1 FROM event_students WHERE event_id=? AND roll_number=?",
+                        (event_id, student["roll_number"])).fetchone():
+        conn.close()
+        raise HTTPException(403, "You are not assigned to this test.")
+    if e["mode"] != "guided":
+        conn.close()
+        return {"status": "ready", "cards": []}
+    uploads = [u for uid in content_library.event_upload_ids(e)
+               if (u := conn.execute("SELECT * FROM uploads WHERE id=?", (uid,)).fetchone())]
+    conn.close()
+
+    cards, statuses = [], []
+    for u in uploads:
+        st = prep_service.get_status(u["id"])["status"]
+        if st not in ("ready", "generating") and u["okf_ready"]:
+            st = prep_service.ensure_generation(u["id"], u)["status"]   # never built, or failed: try again
+        statuses.append(st)
+        if st == "ready":
+            flash, _ = prep_service.load_items(u["id"])
+            name = u["display_name"] or u["filename"]
+            cards += [{"id": c["id"], "topic": c["topic"], "question": c["question"], "answer": c["answer"],
+                       "tip": c["explanation"], "source": name} for c in flash]
+    status = "generating" if "generating" in statuses else ("ready" if cards else "failed")
+    return {"status": status, "cards": cards}
 
 
 async def _finalise_mcq(session_id: str, state: dict) -> dict:
